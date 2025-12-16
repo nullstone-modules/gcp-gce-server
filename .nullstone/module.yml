@@ -1,0 +1,14 @@
+org_name: nullstone
+name: gcp-gce-server
+friendly_name: GCE Server
+description: Creates a Google Cloud Compute Engine VM
+category: app
+subcategory: server
+provider_types:
+    - gcp
+platform: gce
+subplatform: ""
+type: ""
+appCategories: []
+is_public: true
+tool_name: opentofu
