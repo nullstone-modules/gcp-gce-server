@@ -1,4 +1,6 @@
 locals {
+  image_name = var.image_name == "" ? "ubuntu-os-cloud/ubuntu-2404-lts-amd64" : var.image_name
+
   instance_tags = [
     "ns-stack-${local.stack_name}",
     "ns-block-${local.block_name}",
@@ -17,7 +19,7 @@ resource "google_compute_instance" "this" {
 
   boot_disk {
     initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-2404-lts-amd64"
+      image = local.image_name
       size  = var.boot_disk_gb
       type  = var.boot_disk_type
     }

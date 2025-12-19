@@ -25,6 +25,15 @@ By default, this is empty which allows no IPv6 access to the box.
 EOF
 }
 
+variable "image_name" {
+  type        = string
+  default     = ""
+  description = <<EOF
+By default, this module uses the latest image from "ubuntu-os-cloud/ubuntu-2404-lts-amd64".
+Use this variable to override the image name for the created instance.
+EOF
+}
+
 variable "machine_type" {
   type        = string
   default     = "e2-standard-4"
