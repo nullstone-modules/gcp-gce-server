@@ -1,9 +1,11 @@
 variable "ssh_public_keys" {
   type        = map(string)
+  default     = {} // Empty map enables oslogin instead of configuring ssh keys
   description = <<EOF
 A map of SSH public keys to add to the bastion's authorized_keys file.
 This map should define a unique user name for the key mapped to the public key.
 This is used to authorize each developer's identity for SSH access.
+By specifying an empty map, oslogin will be enabled instead of configuring ssh keys.
 EOF
 }
 

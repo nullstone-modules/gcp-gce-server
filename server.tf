@@ -11,11 +11,17 @@ locals {
 }
 
 resource "google_compute_instance" "this" {
-  name         = local.resource_name
-  machine_type = var.machine_type
-  zone         = local.available_zones[0]
-  tags         = local.instance_tags
-  labels       = local.labels
+  name                      = local.resource_name
+  machine_type              = var.machine_type
+  zone                      = local.available_zones[0]
+  tags                      = local.instance_tags
+  labels                    = local.labels
+  allow_stopping_for_update = true
+
+  service_account {
+    email  = google_service_account.app.email
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
 
   boot_disk {
     initialize_params {
