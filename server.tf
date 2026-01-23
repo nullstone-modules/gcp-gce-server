@@ -31,6 +31,16 @@ resource "google_compute_instance" "this" {
     }
   }
 
+  dynamic "attached_disk" {
+    for_each = local.disks
+
+    content {
+      source      = attached_disk.value.disk_id
+      device_name = attached_disk.value.device_name
+      mode        = attached_disk.value.mode
+    }
+  }
+
   network_interface {
     network    = local.vpc_name
     subnetwork = local.public_subnet_names[0]
@@ -43,6 +53,7 @@ resource "google_compute_instance" "this" {
   metadata = {
     enable-oslogin = local.ssh_keys == "" ? "TRUE" : null
     ssh-keys       = local.ssh_keys
+    user-data      = local.cloud_init
   }
 }
 

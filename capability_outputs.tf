@@ -7,5 +7,6 @@ locals {
     "private_urls",
     "public_urls",
     "metrics",
+    "disks",
   ]
 }

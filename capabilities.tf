@@ -73,5 +73,14 @@ locals {
         mappings = jsonencode({})
       }
     ]
+
+    disks = [
+      {
+        cap_tf_id   = "x"
+        device_name = ""
+        disk_id     = ""
+        mode        = "" // "READ_WRITE" | "READ_ONLY"
+      }
+    ]
   }
 }
