@@ -60,3 +60,21 @@ This initializes the boot disk with the specified type of disk.
 Available options are: pd-ssd, pd-standard, pd-balanced
 EOF
 }
+
+variable "resource_alerts" {
+  type = object({
+    enabled = bool
+    email   = string
+    cpu     = number
+  })
+  default = {
+    enabled = false
+    email   = ""
+    cpu     = 90
+  }
+  description = <<EOF
+Configure CPU utilization alerting for the VM.
+When enabled, a GCP monitoring alert policy is created that notifies the given email address
+when CPU utilization exceeds the configured threshold (0-100).
+EOF
+}
