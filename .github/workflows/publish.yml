@@ -32,4 +32,4 @@ jobs:
       - id: publish
         name: Publish
         run: |
-          nullstone modules publish --version=${{ env.MODULE_VERSION }} --include=mount-disks.sh
+          nullstone modules publish --version=${{ env.MODULE_VERSION }}
