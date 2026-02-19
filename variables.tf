@@ -77,4 +77,9 @@ Configure CPU utilization alerting for the VM.
 When enabled, a GCP monitoring alert policy is created that notifies the given email address
 when CPU utilization exceeds the configured threshold (0-100).
 EOF
+
+  validation {
+    condition     = !var.resource_alerts.enabled || var.resource_alerts.email != ""
+    error_message = "email must be specified if alerts are enabled"
+  }
 }
