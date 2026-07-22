@@ -35,3 +35,10 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+__backend__.tf
+.nullstone/active-workspace.yml
+
+# Local development docs, notes, and AI/editor scratch (not part of the module)
+docs/
+.cursor/
+.cursorrules

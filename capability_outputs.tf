@@ -8,5 +8,6 @@ locals {
     "public_urls",
     "metrics",
     "disks",
+    "cloud_init_stanzas",
   ]
 }
