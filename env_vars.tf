@@ -1,17 +1,14 @@
 // Environment Variables and Secrets
 //
-// This file is responsible for aggregating environment variables and secrets from multiple sources
-// - Standard Environment Variables (NULLSTONE_APP, etc.)
-// - Google Environment Variables (GOOGLE_PROJECT, etc.)
-// - User Input (var.env_vars, var.secrets)
-// - Capability Outputs (output.env, output.secrets)
+// Aggregates env vars and secrets from:
+// - Standard / Google env (NULLSTONE_*, GOOGLE_*)
+// - User input (var.env_vars, var.secrets)
+// - Capability outputs (env, secrets)
 //
-// For secrets, we need to do the following:
-// 1. Add secrets to GCP secrets manager (var.secrets, local.capabilities.secrets)
-//   -> Don't add secret for `{{ secret(...) }}` -- these are secrets that already exist in GCP
-// 2. Add app access to GCP secrets manager secrets (var.secrets, local.capabilities.secrets)
-// 3. Add k8s secret referencing associated GCP secrets manager secrets
-// 4. Add env var to pod referencing k8s secret
+// Secrets handling:
+// 1. Create managed GSM secrets unless the value is {{ secret(<id>) }} (existing).
+// 2. Grant the VM service account secretAccessor on each secret (see service-account.tf).
+// 3. Expose secret IDs via secrets.manifest; load-app-secrets.sh resolves them at boot into tmpfs.
 
 variable "env_vars" {
   type        = map(string)
@@ -66,11 +63,11 @@ data "ns_env_variables" "this" {
   input_secrets       = local.input_secrets
 }
 
-// "existing" adds support for the `secret(...)` syntax
-// This only supports `secret(...)` specified by the user
+// Detect {{ secret(<id>) }} refs (user + capability) so existing secrets get IAM
+// only — they must not be re-created as managed secrets.
 data "ns_env_variables" "existing" {
   input_env_variables = var.env_vars
-  input_secrets       = {}
+  input_secrets       = local.input_secrets
 }
 
 data "ns_secret_keys" "this" {

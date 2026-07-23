@@ -1,4 +1,5 @@
 locals {
+  # Capability-contributed cloud-init fragments (write_files / runcmd).
   cap_write_files = flatten([
     for s in lookup(local.capabilities, "cloud_init_stanzas", []) : try(s.content.write_files, [])
   ])
@@ -6,14 +7,9 @@ locals {
     for s in lookup(local.capabilities, "cloud_init_stanzas", []) : try(s.content.runcmd, [])
   ])
 
-  # Non-sensitive env vars, rendered as a KEY=VALUE manifest. Each line carries a
-  # trailing newline so the loader can cat it verbatim without gluing entries.
+  # Trailing newline per line so the loader can cat manifests without gluing entries.
   app_env_manifest = join("", [for k, v in local.all_env_vars : "${k}=${v}\n"])
-
-  # Secrets, rendered as a KEY=<secret_id> manifest. Only the Secret Manager
-  # identifier is written -- never the secret value -- so no secret material
-  # touches disk or Terraform state. load-app-secrets.sh resolves each id to its
-  # value at boot into a tmpfs mount. Trailing newline per line for the loader.
+  # IDs only — never secret values (resolved at boot into tmpfs by load-app-secrets.sh).
   app_secrets_manifest = join("", [for k, id in local.all_secrets : "${k}=${id}\n"])
 
   manifest_write_files = [
@@ -37,6 +33,7 @@ locals {
     },
   ]
 
+  # Loader runs before capability runcmd so app.env exists when workloads start.
   cloud_config = yamlencode({
     write_files = concat(
       [

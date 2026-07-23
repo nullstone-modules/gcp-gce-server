@@ -14,3 +14,4 @@ is_public: true
 tool_name: opentofu
 include:
     - mount-disks.sh
+    - load-app-secrets.sh

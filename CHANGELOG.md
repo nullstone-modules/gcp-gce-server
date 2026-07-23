@@ -2,18 +2,12 @@
 
 ### 0.1.0 (Unreleased)
 
-- Initial release.
-- Add environment variable and secret delivery through cloud-init.
-  - Aggregate environment variables and secrets from the application and its
-    capabilities.
-  - Write `/etc/app/env.manifest` with non-sensitive `KEY=VALUE` entries.
-  - Write `/etc/app/secrets.manifest` with `KEY=<secret_id>` entries
-    (identifiers only, never secret values).
-  - Add `load-app-secrets.sh`, a generic boot-time loader that resolves each
-    secret from Google Secret Manager using the metadata access token and the
-    REST API (no gcloud, no docker), then writes `/run/app-secrets/app.env` in
-    tmpfs.
-  - The loader is atomic and fail-closed. Secret values never touch the boot
-    disk or Terraform state.
-  - Add `cloud_init_stanzas` to the capability output contract so capabilities
-    can contribute cloud-init to the server.
+- Deliver aggregated app and capability env/secrets through cloud-init.
+  - Write `/etc/app/env.manifest` (`KEY=VALUE`) and `/etc/app/secrets.manifest`
+    (`KEY=<secret_id>` only — never secret values).
+  - Add `load-app-secrets.sh`: metadata token + Secret Manager REST (no gcloud,
+    no docker); atomic, fail-closed write of `/run/app-secrets/app.env` on tmpfs.
+  - Add `cloud_init_stanzas` to the capability output contract.
+  - Treat capability `{{ secret(<id>) }}` refs as unmanaged existing secrets
+    (`env_vars.tf`) — grant IAM, do not create new GSM secrets.
+  - Include `load-app-secrets.sh` in `.nullstone/module.yml` for publish.
