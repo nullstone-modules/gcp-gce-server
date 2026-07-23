@@ -11,22 +11,30 @@ locals {
   app_env_manifest = join("", [for k, v in local.all_env_vars : "${k}=${v}\n"])
   # IDs only — never secret values (resolved at boot into tmpfs by load-app-secrets.sh).
   app_secrets_manifest = join("", [for k, id in local.all_secrets : "${k}=${id}\n"])
+  # File name => secret id for secrets that must be files (e.g. SSH host keys).
+  app_secret_files_manifest = join("", [for fname, id in var.secret_files : "${fname}=${id}\n"])
 
   manifest_write_files = [
     {
-      path        = "/etc/app/env.manifest"
+      path        = "/app/env.manifest"
       permissions = "0640"
       owner       = "root:root"
       content     = local.app_env_manifest
     },
     {
-      path        = "/etc/app/secrets.manifest"
+      path        = "/app/secrets.manifest"
       permissions = "0640"
       owner       = "root:root"
       content     = local.app_secrets_manifest
     },
     {
-      path        = "/usr/local/bin/load-app-secrets.sh"
+      path        = "/app/secret-files.manifest"
+      permissions = "0640"
+      owner       = "root:root"
+      content     = local.app_secret_files_manifest
+    },
+    {
+      path        = "/app/load-app-secrets.sh"
       permissions = "0755"
       owner       = "root:root"
       content     = file("${path.module}/load-app-secrets.sh")
@@ -49,7 +57,7 @@ locals {
     )
     runcmd = concat(
       ["DISKS=\"${join(" ", local.disk_names)}\" /usr/local/bin/mount-disks.sh"],
-      ["/usr/local/bin/load-app-secrets.sh"],
+      ["/app/load-app-secrets.sh"],
       local.cap_runcmd,
     )
   })
