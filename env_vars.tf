@@ -49,6 +49,7 @@ locals {
     NULLSTONE_COMMIT_SHA    = data.ns_app_env.this.commit_sha
     NULLSTONE_PUBLIC_HOSTS  = join(",", local.public_hosts)
     NULLSTONE_PRIVATE_HOSTS = join(",", local.private_hosts)
+    SECRETS_MOUNT_DIR       = local.app_metadata["secrets_mount"]
   })
   google_env_vars = tomap({
     GOOGLE_CLOUD_PROJECT         = local.project_id

@@ -22,6 +22,9 @@ locations on the instance for any workload (for example `gcp-gce-docker-app`):
 | `/run/app-secrets/app.env` | Resolved env + secrets (tmpfs) |
 | `/run/app-secrets/<file name>` | Each capability file secret (tmpfs) |
 
+Built-in env `SECRETS_MOUNT_DIR` points at the secrets mount path (same value as
+`app_metadata.secrets_mount`, default `/run/app-secrets`).
+
 `load-app-secrets.sh` resolves each secret with the VM metadata access token and
 the Secret Manager REST API (no gcloud, no docker), then writes `app.env` and any
 secret files under `/run/app-secrets` on tmpfs. The `app.env` write is atomic and
