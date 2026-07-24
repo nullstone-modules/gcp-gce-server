@@ -82,5 +82,22 @@ locals {
         mode        = "" // "READ_WRITE" | "READ_ONLY"
       }
     ]
+
+    cloud_init_stanzas = [
+      {
+        cap_tf_id = "x"
+        write_files = [
+          {
+            path        = "/"
+            permissions = "0644"
+            owner       = "root:root"
+            content     = "..."
+          }
+        ]
+        runcmd = [
+          "systemctl daemon-reload"
+        ]
+      }
+    ]
   }
 }
