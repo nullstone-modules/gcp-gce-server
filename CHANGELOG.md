@@ -11,3 +11,4 @@
   - Treat capability `{{ secret(<id>) }}` refs as unmanaged existing secrets
     (`env_vars.tf`) — grant IAM, do not create new GSM secrets.
   - Include `load-app-secrets.sh` in `.nullstone/module.yml` for publish.
+  - Inject `data_dir` and `secrets_mount` into `app_metadata` for capability coordination.
