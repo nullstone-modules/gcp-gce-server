@@ -9,5 +9,6 @@ locals {
     "metrics",
     "disks",
     "cloud_init_stanzas",
+    "secret_files",
   ]
 }

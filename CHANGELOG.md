@@ -1,2 +1,4 @@
 # 0.1.0 (Unreleased)
-* Initial release
+
+* Accept capability `secret_files` output and materialize files on tmpfs via
+  `/app/secret-files.manifest` and `load-app-secrets.sh`.
