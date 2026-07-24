@@ -1,10 +1,12 @@
 locals {
+  cloud_init_stanzas = try(local.capabilities.cloud_init_stanzas, [])
+
   # Capability-contributed cloud-init fragments (write_files / runcmd).
   cap_write_files = flatten([
-    for s in lookup(local.capabilities, "cloud_init_stanzas", []) : try(s.content.write_files, [])
+    for s in local.cloud_init_stanzas : try(s.write_files, [])
   ])
   cap_runcmd = flatten([
-    for s in lookup(local.capabilities, "cloud_init_stanzas", []) : try(s.content.runcmd, [])
+    for s in local.cloud_init_stanzas : try(s.runcmd, [])
   ])
 
   # Trailing newline per line so the loader can cat manifests without gluing entries.
