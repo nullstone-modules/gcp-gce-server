@@ -20,13 +20,3 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.app.email}"
 }
-
-// Grant the VM service account access to any file-materialized secrets (e.g. SSH host keys)
-resource "google_secret_manager_secret_iam_member" "secret_files_access" {
-  for_each = var.secret_files
-
-  secret_id = each.value
-  project   = local.project_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.app.email}"
-}

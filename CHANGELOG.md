@@ -12,3 +12,5 @@
     (`env_vars.tf`) — grant IAM, do not create new GSM secrets.
   - Include `load-app-secrets.sh` in `.nullstone/module.yml` for publish.
   - Inject `data_dir` and `secrets_mount` into `app_metadata` for capability coordination.
+  - Remove `var.secret_files` (and secret-files manifest/IAM/loader path) from this
+    PR; file secrets move to a follow-up capability (e.g. `gcp-gce-mounted-ssh-keys`).

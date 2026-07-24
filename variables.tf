@@ -74,14 +74,3 @@ Configure CPU utilization alerting for the VM.
 When enabled, a GCP monitoring alert policy is created that notifies the given notification channel when CPU utilization exceeds the configured threshold (0-100).
 EOF
 }
-
-variable "secret_files" {
-  type        = map(string)
-  default     = {}
-  description = <<EOD
-Secrets that must be materialized as files (for example SSH host keys) rather than
-environment variables. Map of file name => Secret Manager secret id. Each secret is
-fetched at boot and written to /run/app-secrets/<file name> on tmpfs (read-only,
-never on the boot disk or in Terraform state).
-EOD
-}

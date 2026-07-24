@@ -17,27 +17,17 @@ locations on the instance for any workload (for example `gcp-gce-docker-app`):
 |------|----------|
 | `/app/env.manifest` | Non-sensitive `KEY=VALUE` |
 | `/app/secrets.manifest` | `KEY=<gsm_secret_id>` (identifiers only) |
-| `/app/secret-files.manifest` | `<file name>=<gsm_secret_id>` (identifiers only) |
 | `/app/load-app-secrets.sh` | Boot/runtime loader |
 | `/run/app-secrets/app.env` | Resolved env + secrets (tmpfs) |
-| `/run/app-secrets/<file name>` | Each file-materialized secret (tmpfs) |
 
 `load-app-secrets.sh` resolves each secret with the VM metadata access token and
-the Secret Manager REST API (no gcloud, no docker), then writes `app.env` and any
-secret files under `/run/app-secrets` on tmpfs. The `app.env` write is atomic and
-fail-closed: if any secret fails to resolve, no `app.env` is produced.
+the Secret Manager REST API (no gcloud, no docker), then writes `app.env` under
+`/run/app-secrets` on tmpfs. The `app.env` write is atomic and fail-closed: if
+any secret fails to resolve, no `app.env` is produced.
 
 Cloud-init runs the loader once at first boot. Because `/run/app-secrets` is
 tmpfs, workloads should re-invoke the loader on every service start so the files
 exist after reboot.
-
-### Secret files (e.g. SSH host keys)
-
-Use `var.secret_files` (a map of file name => Secret Manager secret id) for
-secrets that must be files rather than env vars. The server fetches each at boot,
-writes it to `/run/app-secrets/<file name>`, and grants the VM service account
-`secretAccessor` on it. Workloads read these files from the read-only secrets
-mount — the capability needs no IAM of its own.
 
 ## Notes
 
