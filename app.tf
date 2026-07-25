@@ -9,11 +9,14 @@ locals {
 }
 
 locals {
+  data_dir          = "/var/lib/app"
+  secrets_mount_dir = "/run/app-secrets"
+
   app_metadata = tomap({
     // Inject app metadata into capabilities here (e.g. service_account_email)
     service_account_id    = google_service_account.app.id
     service_account_email = google_service_account.app.email
-    data_dir              = "/var/lib/app"
-    secrets_mount         = "/run/app-secrets"
+    data_dir              = local.data_dir
+    secrets_mount         = local.secrets_mount_dir
   })
 }

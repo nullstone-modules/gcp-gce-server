@@ -49,7 +49,6 @@ locals {
     NULLSTONE_COMMIT_SHA    = data.ns_app_env.this.commit_sha
     NULLSTONE_PUBLIC_HOSTS  = join(",", local.public_hosts)
     NULLSTONE_PRIVATE_HOSTS = join(",", local.private_hosts)
-    SECRETS_MOUNT_DIR       = local.app_metadata["secrets_mount"]
   })
   google_env_vars = tomap({
     GOOGLE_CLOUD_PROJECT         = local.project_id
@@ -57,8 +56,12 @@ locals {
     GOOGLE_CLOUD_PROJECT_NUMBER  = local.project_number
     GOOGLE_SERVICE_ACCOUNT_EMAIL = google_service_account.app.email
   })
+  scaffold_env_vars = tomap({
+    DATA_DIR          = local.data_dir
+    SECRETS_MOUNT_DIR = local.secrets_mount_dir
+  })
 
-  input_env_vars    = merge(local.standard_env_vars, local.google_env_vars, local.cap_env_vars, var.env_vars)
+  input_env_vars    = merge(local.standard_env_vars, local.google_env_vars, local.scaffold_env_vars, local.cap_env_vars, var.env_vars)
   input_secrets     = merge(local.cap_secrets, var.secrets)
   input_secret_keys = nonsensitive(concat(keys(local.cap_secrets), keys(var.secrets)))
 }
