@@ -1,5 +1,6 @@
 locals {
   cloud_init_stanzas = try(local.capabilities.cloud_init_stanzas, [])
+  secret_files       = try(local.capabilities.secret_files, [])
 
   # Capability-contributed cloud-init fragments (write_files / runcmd).
   cap_write_files = flatten([
@@ -13,6 +14,10 @@ locals {
   app_env_manifest = join("", [for k, v in local.all_env_vars : "${k}=${v}\n"])
   # IDs only — never secret values (resolved at boot into tmpfs by load-app-secrets.sh).
   app_secrets_manifest = join("", [for k, id in local.all_secrets : "${k}=${id}\n"])
+  # Capability-contributed file secrets (e.g. gcp-gce-mounted-ssh-keys).
+  app_secret_files_manifest = join("", [
+    for item in local.secret_files : "${item.name}=${item.secret_id}\n"
+  ])
 
   manifest_write_files = [
     {
@@ -26,6 +31,12 @@ locals {
       permissions = "0640"
       owner       = "root:root"
       content     = local.app_secrets_manifest
+    },
+    {
+      path        = "/app/secret-files.manifest"
+      permissions = "0640"
+      owner       = "root:root"
+      content     = local.app_secret_files_manifest
     },
     {
       path        = "/app/load-app-secrets.sh"

@@ -99,5 +99,15 @@ locals {
         ]
       }
     ]
+
+    // secret_files lets capabilities materialize GSM secrets as files on tmpfs
+    // (e.g. gcp-gce-mounted-ssh-keys). Consumed at local.capabilities.secret_files.
+    secret_files = [
+      {
+        cap_tf_id = "x"
+        name      = "id_ed25519"
+        secret_id = "..."
+      }
+    ]
   }
 }
