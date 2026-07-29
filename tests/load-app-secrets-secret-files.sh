@@ -9,16 +9,14 @@ LOADER="${ROOT}/load-app-secrets.sh"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "${WORKDIR}"' EXIT
 
-mkdir -p "${WORKDIR}/app" "${WORKDIR}/run"
+mkdir -p "${WORKDIR}/etc/nullstone" "${WORKDIR}/run"
 python3 - "${LOADER}" "${WORKDIR}/load-app-secrets.sh" "${WORKDIR}" <<'PY'
 import pathlib, sys
 src, dst, work = map(pathlib.Path, sys.argv[1:4])
 text = src.read_text()
 replacements = {
     'SECRETS_MOUNT="/run/app-secrets"': f'SECRETS_MOUNT="{work}/run/app-secrets"',
-    'ENV_MANIFEST="/app/env.manifest"': f'ENV_MANIFEST="{work}/app/env.manifest"',
-    'SECRETS_MANIFEST="/app/secrets.manifest"': f'SECRETS_MANIFEST="{work}/app/secrets.manifest"',
-    'SECRET_FILES_MANIFEST="/app/secret-files.manifest"': f'SECRET_FILES_MANIFEST="{work}/app/secret-files.manifest"',
+    'NULLSTONE_DIR="/etc/nullstone"': f'NULLSTONE_DIR="{work}/etc/nullstone"',
     'grep -q "${SECRETS_MOUNT}" /proc/mounts || mount -t tmpfs -o size=1m tmpfs "${SECRETS_MOUNT}"': "true",
 }
 for old, new in replacements.items():
@@ -30,9 +28,9 @@ dst.chmod(0o755)
 PY
 
 # 1) Empty manifests -> success, app.env published.
-: > "${WORKDIR}/app/env.manifest"
-: > "${WORKDIR}/app/secrets.manifest"
-: > "${WORKDIR}/app/secret-files.manifest"
+: > "${WORKDIR}/etc/nullstone/env.manifest"
+: > "${WORKDIR}/etc/nullstone/secrets.manifest"
+: > "${WORKDIR}/etc/nullstone/secret-files.manifest"
 if ! "${WORKDIR}/load-app-secrets.sh"; then
   echo "FAIL: empty manifests should succeed" >&2
   exit 1
@@ -42,7 +40,7 @@ echo "OK: empty manifests publish app.env"
 
 # 2) Non-empty secret-files without GSM -> fail closed (no token / fetch).
 rm -f "${WORKDIR}/run/app-secrets/app.env"
-printf 'id_ed25519=fake-secret-id\n' > "${WORKDIR}/app/secret-files.manifest"
+printf 'id_ed25519=fake-secret-id\n' > "${WORKDIR}/etc/nullstone/secret-files.manifest"
 if "${WORKDIR}/load-app-secrets.sh"; then
   echo "FAIL: missing GSM should fail closed" >&2
   exit 1
