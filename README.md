@@ -15,12 +15,17 @@ locations on the instance for any workload (for example `gcp-gce-docker-app`):
 
 | Path | Contents |
 |------|----------|
-| `/app/env.manifest` | Non-sensitive `KEY=VALUE` |
-| `/app/secrets.manifest` | `KEY=<gsm_secret_id>` (identifiers only) |
-| `/app/secret-files.manifest` | `<file name>=<gsm_secret_id>` from capabilities |
-| `/app/load-app-secrets.sh` | Boot/runtime loader |
+| `/etc/nullstone/env.manifest` | Non-sensitive `KEY=VALUE` |
+| `/etc/nullstone/secrets.manifest` | `KEY=<gsm_secret_id>` (identifiers only) |
+| `/etc/nullstone/secret-files.manifest` | `<file name>=<gsm_secret_id>` from capabilities |
+| `/etc/nullstone/load-app-secrets.sh` | Boot/runtime loader |
+| `/etc/nullstone/mount-disks.sh` | Attached-disk mounter |
 | `/run/app-secrets/app.env` | Resolved env + secrets (tmpfs) |
 | `/run/app-secrets/<file name>` | Each capability file secret (tmpfs) |
+
+Scaffold paths live under `/etc/nullstone` so they work on Container-Optimized OS
+(read-only root; `/etc` is writable and executable). Cloud-init rewrites them
+each boot. Resolved secrets remain on tmpfs under `/run/app-secrets`.
 
 Built-in env `SECRETS_MOUNT_DIR` points at the secrets mount path (same value as
 `app_metadata.secrets_mount`, default `/run/app-secrets`).
@@ -38,8 +43,8 @@ exist after reboot.
 
 File secrets are not a user variable. Attach a capability that exports
 `secret_files` (for example `gcp-gce-mounted-ssh-keys`). The server reads
-`local.capabilities.secret_files`, writes `/app/secret-files.manifest`, and
-materializes each file on tmpfs.
+`local.capabilities.secret_files`, writes `/etc/nullstone/secret-files.manifest`,
+and materializes each file on tmpfs.
 
 ## Notes
 

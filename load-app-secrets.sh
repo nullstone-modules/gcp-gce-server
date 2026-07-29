@@ -2,10 +2,10 @@
 #
 # load-app-secrets.sh — generic env/secret loader for gcp-gce-server.
 #
-# Inputs (cloud-init):
-#   /app/env.manifest           KEY=VALUE
-#   /app/secrets.manifest       KEY=<gsm_secret_id>          # IDs only, never values
-#   /app/secret-files.manifest  <file name>=<gsm_secret_id>  # from capabilities
+# Inputs (cloud-init, under /etc/nullstone — COS-writable + executable):
+#   env.manifest           KEY=VALUE
+#   secrets.manifest       KEY=<gsm_secret_id>          # IDs only, never values
+#   secret-files.manifest  <file name>=<gsm_secret_id>  # from capabilities
 #
 # Output (tmpfs, RAM only):
 #   /run/app-secrets/app.env            env + resolved secrets
@@ -18,9 +18,10 @@
 set -euo pipefail
 
 SECRETS_MOUNT="/run/app-secrets"
-ENV_MANIFEST="/app/env.manifest"
-SECRETS_MANIFEST="/app/secrets.manifest"
-SECRET_FILES_MANIFEST="/app/secret-files.manifest"
+NULLSTONE_DIR="/etc/nullstone"
+ENV_MANIFEST="${NULLSTONE_DIR}/env.manifest"
+SECRETS_MANIFEST="${NULLSTONE_DIR}/secrets.manifest"
+SECRET_FILES_MANIFEST="${NULLSTONE_DIR}/secret-files.manifest"
 METADATA="http://metadata.google.internal/computeMetadata/v1"
 
 mkdir -p "${SECRETS_MOUNT}"
