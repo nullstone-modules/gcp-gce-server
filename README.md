@@ -1,11 +1,25 @@
 # gcp-gce-server
 
-Provisions a Google Compute Engine VM with a dedicated workload service account
-and cloud-init delivery of application environment variables and secrets.
+Provisions a Google Compute Engine workload as a regional managed instance group
+(size 1, all available zones) with a dedicated workload service account and
+cloud-init delivery of application environment variables and secrets.
+
+Named ports on the MIG are owned by capabilities (for example
+`gcp-gce-tcp-load-balancer` exports `named_ports`). The app module does not
+define a service port by itself.
+
+## Access
+
+- Instances have **no public IP** (cheaper; safe under rolling replace).
+- SSH: OS Login + IAP (`gcloud compute ssh <instance> --tunnel-through-iap`);
+  firewall allows IAP IPv4 `35.235.240.0/20` and IPv6 `2600:2d00:1:7::/64`.
+- Public app traffic: attach `gcp-gce-tcp-load-balancer` (stable IP on the LB).
 
 ## Disk attachment
 
 Attached disks (usually via a capability) are mounted at `/mnt/<device-name>`.
+Persistent attached disks across MIG rolling replace are **not** designed yet;
+treat as unsupported until a storage approach is agreed.
 
 ## Environment variables and secrets (server contract)
 

@@ -9,24 +9,6 @@ By specifying an empty map, oslogin will be enabled instead of configuring ssh k
 EOF
 }
 
-variable "allowed_cidr_blocks" {
-  type        = list(string)
-  default     = []
-  description = <<EOF
-The IP Ranges for users that are allowed to access this server from the internet.
-By default, this is empty which allows no IPv4 to access the box.
-EOF
-}
-
-variable "allowed_ipv6_cidr_blocks" {
-  type        = list(string)
-  default     = []
-  description = <<EOF
-The IPv6 IP Ranges for users that are allowed to access this server from the internet.
-By default, this is empty which allows no IPv6 access to the box.
-EOF
-}
-
 variable "image_name" {
   type        = string
   default     = ""

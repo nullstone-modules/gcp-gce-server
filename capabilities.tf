@@ -109,5 +109,15 @@ locals {
         secret_id = "..."
       }
     ]
+
+    // named_ports lets capabilities register MIG named ports (e.g. tcp LB).
+    // Consumed on the regional MIG as dynamic named_port blocks.
+    named_ports = [
+      {
+        cap_tf_id = "x"
+        name      = "tcp-2022"
+        port      = 2022
+      }
+    ]
   }
 }
