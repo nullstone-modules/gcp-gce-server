@@ -106,7 +106,7 @@ resource "google_compute_region_instance_group_manager" "this" {
 resource "google_compute_firewall" "server-ssh" {
   name          = "${local.resource_name}-allow-ssh"
   network       = local.vpc_name
-  source_ranges = distinct(concat(local.iap_ssh_cidrs, var.allowed_cidr_blocks, var.allowed_ipv6_cidr_blocks))
+  source_ranges = local.iap_ssh_cidrs
   target_tags   = local.instance_tags
 
   allow {

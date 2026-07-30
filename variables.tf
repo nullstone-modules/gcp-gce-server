@@ -9,23 +9,6 @@ By specifying an empty map, oslogin will be enabled instead of configuring ssh k
 EOF
 }
 
-variable "allowed_cidr_blocks" {
-  type        = list(string)
-  default     = []
-  description = <<EOF
-Extra IPv4 ranges allowed to SSH (TCP 22), in addition to the IAP ranges (always allowed).
-Instances have no public IP; use IAP for SSH: gcloud compute ssh --tunnel-through-iap
-EOF
-}
-
-variable "allowed_ipv6_cidr_blocks" {
-  type        = list(string)
-  default     = []
-  description = <<EOF
-Extra IPv6 ranges allowed to SSH (TCP 22), in addition to the IAP IPv6 range (always allowed).
-EOF
-}
-
 variable "image_name" {
   type        = string
   default     = ""
