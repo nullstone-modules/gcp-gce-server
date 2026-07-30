@@ -15,5 +15,5 @@ output "region" {
 
 output "zone" {
   value       = local.available_zones[0]
-  description = "string ||| The GCP zone used for the MIG distribution policy"
+  description = "string ||| First zone in the MIG distribution policy (MIG spans all available zones in the region)"
 }

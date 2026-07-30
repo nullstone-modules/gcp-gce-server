@@ -9,11 +9,12 @@ locals {
 
   ssh_keys = join("\n", [for username, public_key in var.ssh_public_keys : "${username}:${public_key}"])
 
-  # Named port on the MIG for L4 LB capabilities (passthrough uses this host port).
-  service_port_name = "app"
-
-  # IAP TCP forwarding range for OS Login / gcloud SSH without a public IP.
-  iap_ssh_cidr = "35.235.240.0/20"
+  # IAP TCP forwarding ranges for OS Login / gcloud SSH without a public IP.
+  # https://cloud.google.com/iap/docs/using-tcp-forwarding
+  iap_ssh_cidrs = [
+    "35.235.240.0/20",
+    "2600:2d00:1:7::/64",
+  ]
 }
 
 resource "google_compute_instance_template" "this" {
@@ -66,7 +67,8 @@ resource "google_compute_instance_template" "this" {
   }
 }
 
-# Regional MIG, single zone: size 1, surge 1 / unavailable 0 (zero-downtime replace).
+# Regional MIG across all available zones: size 1, surge = zone count / unavailable 0.
+# Named ports come from capabilities (e.g. tcp LB) via local.capabilities.named_ports.
 resource "google_compute_region_instance_group_manager" "this" {
   name               = local.resource_name
   base_instance_name = local.resource_name
@@ -77,21 +79,26 @@ resource "google_compute_region_instance_group_manager" "this" {
     instance_template = google_compute_instance_template.this.id
   }
 
-  named_port {
-    name = local.service_port_name
-    port = var.service_port
+  dynamic "named_port" {
+    for_each = local.capabilities.named_ports
+
+    content {
+      name = named_port.value.name
+      port = named_port.value.port
+    }
   }
 
   update_policy {
     type                           = "PROACTIVE"
     minimal_action                 = "REPLACE"
     most_disruptive_allowed_action = "REPLACE"
-    max_surge_fixed                = 1
-    max_unavailable_fixed          = 0
-    replacement_method             = "SUBSTITUTE"
+    # Regional fixed surge/unavailable must be 0 or >= number of zones.
+    max_surge_fixed       = length(local.available_zones)
+    max_unavailable_fixed = 0
+    replacement_method    = "SUBSTITUTE"
   }
 
-  distribution_policy_zones = [local.available_zones[0]]
+  distribution_policy_zones = local.available_zones
 
   depends_on = [google_project_service.compute]
 }
@@ -99,7 +106,7 @@ resource "google_compute_region_instance_group_manager" "this" {
 resource "google_compute_firewall" "server-ssh" {
   name          = "${local.resource_name}-allow-ssh"
   network       = local.vpc_name
-  source_ranges = distinct(concat([local.iap_ssh_cidr], var.allowed_cidr_blocks, var.allowed_ipv6_cidr_blocks))
+  source_ranges = distinct(concat(local.iap_ssh_cidrs, var.allowed_cidr_blocks, var.allowed_ipv6_cidr_blocks))
   target_tags   = local.instance_tags
 
   allow {

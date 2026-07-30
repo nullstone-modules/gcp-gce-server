@@ -13,7 +13,7 @@ variable "allowed_cidr_blocks" {
   type        = list(string)
   default     = []
   description = <<EOF
-Extra IPv4 ranges allowed to SSH (TCP 22), in addition to the IAP range (always allowed).
+Extra IPv4 ranges allowed to SSH (TCP 22), in addition to the IAP ranges (always allowed).
 Instances have no public IP; use IAP for SSH: gcloud compute ssh --tunnel-through-iap
 EOF
 }
@@ -22,8 +22,7 @@ variable "allowed_ipv6_cidr_blocks" {
   type        = list(string)
   default     = []
   description = <<EOF
-The IPv6 IP Ranges for users that are allowed to access this server from the internet.
-By default, this is empty which allows no IPv6 access to the box.
+Extra IPv6 ranges allowed to SSH (TCP 22), in addition to the IAP IPv6 range (always allowed).
 EOF
 }
 
@@ -41,16 +40,6 @@ variable "machine_type" {
   default     = "e2-standard-4"
   description = <<EOF
 The machine type for the server.
-EOF
-}
-
-variable "service_port" {
-  type        = number
-  default     = 2022
-  description = <<EOF
-TCP port the workload listens on on the VM.
-Registered as MIG named port "app" so an L4 load-balancer capability can target it.
-For passthrough L4, the LB forwarding port must match this host port (and docker host_port).
 EOF
 }
 
