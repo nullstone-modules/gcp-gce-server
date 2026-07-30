@@ -14,6 +14,6 @@ output "region" {
 }
 
 output "zone" {
-  value       = google_compute_instance.this.zone
-  description = "string ||| The GCP zone where the instance is located"
+  value       = local.available_zones[0]
+  description = "string ||| The GCP zone used for the MIG distribution policy"
 }

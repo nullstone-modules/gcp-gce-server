@@ -18,7 +18,7 @@ resource "google_monitoring_alert_policy" "cpu" {
     display_name = "CPU utilization above ${var.resource_thresholds.cpu}%"
 
     condition_threshold {
-      filter          = "resource.type = \"gce_instance\" AND resource.labels.instance_id = \"${google_compute_instance.this.instance_id}\" AND metric.type = \"compute.googleapis.com/instance/cpu/utilization\""
+      filter          = "resource.type = \"gce_instance\" AND metric.type = \"compute.googleapis.com/instance/cpu/utilization\" AND resource.labels.instance_name = starts_with(\"${google_compute_region_instance_group_manager.this.base_instance_name}\")"
       duration        = "60s"
       comparison      = "COMPARISON_GT"
       threshold_value = var.resource_thresholds.cpu / 100.0

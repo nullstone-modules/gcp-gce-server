@@ -18,5 +18,12 @@ locals {
     service_account_email = google_service_account.app.email
     data_dir              = local.data_dir
     secrets_mount         = local.secrets_mount_dir
+    // L4 LB capability attaches to this MIG backend.
+    instance_group    = google_compute_region_instance_group_manager.this.instance_group
+    network           = local.vpc_name
+    region            = local.region
+    service_port_name = local.service_port_name
+    service_port      = tostring(var.service_port)
+    instance_tags     = join(",", local.instance_tags)
   })
 }
