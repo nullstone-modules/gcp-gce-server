@@ -110,13 +110,12 @@ locals {
       }
     ]
 
-    // named_ports lets capabilities register MIG named ports (e.g. tcp LB).
-    // Consumed on the regional MIG as dynamic named_port blocks.
-    named_ports = [
+    // load_balancers: L4 LB capabilities export target pools; MIG sets target_pools.
+    load_balancers = [
       {
-        cap_tf_id = "x"
-        name      = "tcp-2022"
-        port      = 2022
+        cap_tf_id   = "x"
+        port        = "2022"
+        target_pool = "..."
       }
     ]
   }

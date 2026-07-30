@@ -15,6 +15,9 @@ locals {
     "35.235.240.0/20",
     "2600:2d00:1:7::/64",
   ]
+
+  # Target pools from L4 LB capabilities; MIG registers instances into them.
+  target_pools = [for lb in local.capabilities.load_balancers : lb.target_pool]
 }
 
 resource "google_compute_instance_template" "this" {
@@ -68,24 +71,15 @@ resource "google_compute_instance_template" "this" {
 }
 
 # Regional MIG across all available zones: size 1, surge = zone count / unavailable 0.
-# Named ports come from capabilities (e.g. tcp LB) via local.capabilities.named_ports.
 resource "google_compute_region_instance_group_manager" "this" {
   name               = local.resource_name
   base_instance_name = local.resource_name
   region             = local.region
   target_size        = 1
+  target_pools       = local.target_pools
 
   version {
     instance_template = google_compute_instance_template.this.id
-  }
-
-  dynamic "named_port" {
-    for_each = local.capabilities.named_ports
-
-    content {
-      name = named_port.value.name
-      port = named_port.value.port
-    }
   }
 
   update_policy {
