@@ -10,6 +10,6 @@ locals {
     "disks",
     "cloud_init_stanzas",
     "secret_files",
-    "named_ports",
+    "load_balancers",
   ]
 }

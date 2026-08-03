@@ -110,13 +110,13 @@ locals {
       }
     ]
 
-    // named_ports lets capabilities register MIG named ports (e.g. tcp LB).
-    // Consumed on the regional MIG as dynamic named_port blocks.
-    named_ports = [
+    // load_balancers: L4 LB capabilities export target pools; MIG sets target_pools.
+    load_balancers = [
       {
         cap_tf_id = "x"
-        name      = "tcp-2022"
-        port      = 2022
+        port      = "2022"
+        # The full URL of all target pools to which new instances in the group are added. Updating the target pools attribute does not affect existing instances.
+        target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>" # usually, google_compute_target_pool.this.self_link
       }
     ]
   }

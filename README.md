@@ -1,68 +1,71 @@
 # gcp-gce-server
 
-Provisions a Google Compute Engine workload as a regional managed instance group
-(size 1, all available zones) with a dedicated workload service account and
-cloud-init delivery of application environment variables and secrets.
+Regional managed instance group (MIG) for a GCE workload: target size 1, all
+available zones, workload service account, and cloud-init delivery of
+environment variables and secrets.
 
-Named ports on the MIG are owned by capabilities (for example
-`gcp-gce-tcp-load-balancer` exports `named_ports`). The app module does not
-define a service port by itself.
+Use a Docker-capable image (Container-Optimized OS recommended) when running
+containers on the instance.
 
-## Access
+## Networking
 
-- Instances have **no public IP** (cheaper; safe under rolling replace).
-- SSH: OS Login + IAP (`gcloud compute ssh <instance> --tunnel-through-iap`);
-  firewall allows IAP IPv4 `35.235.240.0/20` and IPv6 `2600:2d00:1:7::/64`.
-- Public app traffic: attach `gcp-gce-tcp-load-balancer` (stable IP on the LB).
+| Item | Value |
+|------|-------|
+| Subnet | Private subnet from the connected `gcp-network` |
+| VM public IP | None |
+| Egress | Cloud NAT and Private Google Access |
+| SSH | IAP / OS Login |
 
-## Disk attachment
+Workload VMs use the private subnet. The public subnet is for ingress devices
+(NAT, load balancers).
 
-Attached disks (usually via a capability) are mounted at `/mnt/<device-name>`.
-Persistent attached disks across MIG rolling replace are **not** designed yet;
-treat as unsupported until a storage approach is agreed.
+### SSH
 
-## Environment variables and secrets (server contract)
+```bash
+gcloud compute ssh <instance> --project=<project> --zone=<zone> --tunnel-through-iap
+```
 
-This module is the single owner of env vars and secrets. It aggregates them from
-the app configuration and attached capabilities, then guarantees the following
-locations on the instance for any workload (for example `gcp-gce-docker-app`):
+IAP firewall sources: IPv4 `35.235.240.0/20` and IPv6 `2600:2d00:1:7::/64`
+(separate rules; GCP rejects mixed `source_ranges`).
+
+## Secrets contract
 
 | Path | Contents |
 |------|----------|
 | `/etc/nullstone/env.manifest` | Non-sensitive `KEY=VALUE` |
-| `/etc/nullstone/secrets.manifest` | `KEY=<gsm_secret_id>` (identifiers only) |
-| `/etc/nullstone/secret-files.manifest` | `<file name>=<gsm_secret_id>` from capabilities |
-| `/etc/nullstone/load-app-secrets.sh` | Boot/runtime loader |
-| `/etc/nullstone/mount-disks.sh` | Attached-disk mounter |
-| `/run/app-secrets/app.env` | Resolved env + secrets (tmpfs) |
-| `/run/app-secrets/<file name>` | Each capability file secret (tmpfs) |
+| `/etc/nullstone/secrets.manifest` | `KEY=<gsm_secret_id>` |
+| `/etc/nullstone/secret-files.manifest` | `<file>=<gsm_secret_id>` from capabilities |
+| `/etc/nullstone/load-app-secrets.sh` | Loader |
+| `/run/app-secrets/app.env` | Resolved env and secrets (tmpfs) |
+| `/run/app-secrets/<file>` | Capability secret files (tmpfs) |
 
-Scaffold paths live under `/etc/nullstone` so they work on Container-Optimized OS
-(read-only root; `/etc` is writable and executable). Cloud-init rewrites them
-each boot. Resolved secrets remain on tmpfs under `/run/app-secrets`.
+Scaffold is under `/etc/nullstone` for COS. Resolved secrets stay on tmpfs.
+`SECRETS_MOUNT_DIR` matches `app_metadata.secrets_mount` (default
+`/run/app-secrets`).
 
-Built-in env `SECRETS_MOUNT_DIR` points at the secrets mount path (same value as
-`app_metadata.secrets_mount`, default `/run/app-secrets`).
+`load-app-secrets.sh` uses the metadata access token and Secret Manager REST
+(no gcloud, no docker). Fail-closed: no `app.env` if any secret fails. Re-run
+the loader on every service start because tmpfs clears on reboot.
 
-`load-app-secrets.sh` resolves each secret with the VM metadata access token and
-the Secret Manager REST API (no gcloud, no docker), then writes `app.env` and any
-secret files under `/run/app-secrets` on tmpfs. The `app.env` write is atomic and
-fail-closed: if any secret fails to resolve, no `app.env` is produced.
+File secrets come from capability `secret_files`, not a user variable.
+Bind-mount container paths from `/run/app-secrets/...` only.
 
-Cloud-init runs the loader once at first boot. Because `/run/app-secrets` is
-tmpfs, workloads should re-invoke the loader on every service start so the files
-exist after reboot.
+## Upgrades
 
-### Secret files (capability output)
+MIG policy: surge with `max_unavailable_fixed = 0`. Template changes such as
+`machine_type` roll with new capacity first. New connections through an
+attached load balancer remain available; sessions on the replaced instance drop.
 
-File secrets are not a user variable. Attach a capability that exports
-`secret_files` (for example `gcp-gce-mounted-ssh-keys`). The server reads
-`local.capabilities.secret_files`, writes `/etc/nullstone/secret-files.manifest`,
-and materializes each file on tmpfs.
+GCP cannot roll a MIG across subnets. A subnet change requires one MIG
+recreate; later rolling updates are unchanged.
 
-## Notes
+## Disks
 
-- Secret **values** never appear in Terraform state, instance metadata, or the
-  boot disk — only secret IDs.
-- Use a docker-capable image such as Container-Optimized OS for `docker run`
-  workloads.
+Attached disks mount at `/mnt/<device-name>`. Persistent disks across MIG
+replace are not supported yet.
+
+## Security
+
+- Secret values are not in Terraform state, metadata, or the boot disk (IDs only).
+- No VM public IP; operators use IAP.
+- Per-secret Secret Manager IAM (not project-wide `secretAccessor`).
