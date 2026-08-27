@@ -4,6 +4,7 @@ friendly_name: GCE Server
 description: Creates a Google Cloud Compute Engine VM
 category: app
 subcategory: server
+app_type: generic
 provider_types:
     - gcp
 platform: gce
