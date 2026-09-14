@@ -5,6 +5,8 @@
 
 locals {
   # Entries without `type` come from capability versions that predate the spec (target pools).
+  # Legacy: no health check, and the MIG silently loses the pool when it is recreated. Kept only
+  # so existing attachments survive an upgrade; new capabilities must emit tcp or http.
   lb_target_pools = [for lb in local.capabilities.load_balancers : lb if try(lb.type, "target_pool") == "target_pool"]
 
   # Keyed on the capability id, not lb.name: name carries the capability's random suffix, which

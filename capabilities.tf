@@ -113,11 +113,14 @@ locals {
     // load_balancers: ingress capabilities emit a spec; `type` selects the shape and this module
     // creates whatever must name the MIG instance group (see load-balancers.tf and README).
     // Entries without `type` are target pools from gcp-gce-tcp-load-balancer < 0.1.0, which emitted
-    // { port, target_pool }; only target_pool is read.
+    // { port, target_pool }; only target_pool is read. Legacy: target pools have no health check and
+    // silently lose members when recreated. Kept only so existing attachments survive an upgrade;
+    // do not build new capabilities on it.
     load_balancers = [
       {
-        cap_tf_id   = "legacy-ingress"
-        port        = "2222"
+        cap_tf_id = "legacy-ingress"
+        port      = "2222"
+        # The full URL of all target pools to which new instances in the group are added. Updating the target pools attribute does not affect existing instances.
         target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>"
       },
       {

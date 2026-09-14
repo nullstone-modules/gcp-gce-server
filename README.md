@@ -37,14 +37,14 @@ a MIG-derived input is a module cycle). Capabilities keep the address, DNS, clie
 
 | `type` | Capability | Server creates |
 |--------|------------|----------------|
-| (none) | `gcp-gce-tcp-load-balancer` < 0.1.0 | nothing; MIG `target_pools` lists `target_pool` |
+| (none) | `gcp-gce-tcp-load-balancer` < 0.1.0 | nothing; MIG `target_pools` lists `target_pool`. Legacy: no health check, and the MIG silently drops a recreated pool. Kept so existing attachments survive an upgrade; do not use for new capabilities |
 | `tcp` | `gcp-gce-tcp-load-balancer` >= 0.1.0 | `google_compute_region_health_check` (TCP on `server_port`), `google_compute_region_backend_service` (`EXTERNAL`, `TCP`, `CONNECTION`), `google_compute_forwarding_rule` `<name>-<service_port>` on `ip_address` |
 | `http` | `gcp-gce-http-load-balancer` | `google_compute_health_check` (HTTP `health_check.path` on `server_port`), `google_compute_backend_service` (`EXTERNAL_MANAGED`, `HTTP`, `port_name`), `google_compute_url_map`, `google_compute_target_https_proxy` (`certificate_map_id`), `google_compute_global_forwarding_rule` `<name>-443` on `ip_address`; MIG named port `port_name` → `server_port` |
 
 Entry shapes:
 
 ```hcl
-{ port = "22", target_pool = "<self_link>" }   # gcp-gce-tcp-load-balancer < 0.1.0; no type field
+{ port = "22", target_pool = "<self_link>" }   # legacy, gcp-gce-tcp-load-balancer < 0.1.0; no type field; avoid
 
 {
   type         = "tcp"
