@@ -79,7 +79,7 @@ resource "google_compute_region_backend_service" "tcp" {
 }
 
 # Suffixed with the port so it cannot collide with a capability-owned forwarding rule of the
-# same base name being deleted in the same apply (tcp capability switching mode).
+# same base name being deleted in the same apply (upgrading the tcp capability from 0.0.x).
 resource "google_compute_forwarding_rule" "tcp" {
   for_each = local.lb_tcp
 

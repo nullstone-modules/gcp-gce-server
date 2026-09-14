@@ -37,8 +37,8 @@ a MIG-derived input is a module cycle). Capabilities keep the address, DNS, clie
 
 | `type` | Capability | Server creates |
 |--------|------------|----------------|
-| `target_pool` (also entries without `type`) | `gcp-gce-tcp-load-balancer` default mode | nothing; MIG `target_pools` lists the pool |
-| `tcp` | `gcp-gce-tcp-load-balancer` with `mode = backend_service` | `google_compute_region_health_check` (TCP on `server_port`), `google_compute_region_backend_service` (`EXTERNAL`, `TCP`, `CONNECTION`), `google_compute_forwarding_rule` `<name>-<service_port>` on `ip_address` |
+| `target_pool` (also entries without `type`) | `gcp-gce-tcp-load-balancer` < 0.1.0 | nothing; MIG `target_pools` lists the pool |
+| `tcp` | `gcp-gce-tcp-load-balancer` >= 0.1.0 | `google_compute_region_health_check` (TCP on `server_port`), `google_compute_region_backend_service` (`EXTERNAL`, `TCP`, `CONNECTION`), `google_compute_forwarding_rule` `<name>-<service_port>` on `ip_address` |
 | `http` | `gcp-gce-http-load-balancer` | `google_compute_health_check` (HTTP `health_check.path` on `server_port`), `google_compute_backend_service` (`EXTERNAL_MANAGED`, `HTTP`, `port_name`), `google_compute_url_map`, `google_compute_target_https_proxy` (`certificate_map_id`), `google_compute_global_forwarding_rule` `<name>-443` on `ip_address`; MIG named port `port_name` → `server_port` |
 
 Entry shapes:
@@ -124,10 +124,10 @@ recreate; later rolling updates are unchanged.
 
 ### Upgrading to 0.1.0
 
-Existing `target_pool` attachments are unchanged. Server >= 0.1.0 is required for
-`gcp-gce-tcp-load-balancer` `mode = "backend_service"` and for `gcp-gce-http-load-balancer`;
-older servers ignore those entries and attach nothing. Switching the tcp capability to
-`backend_service` recreates its forwarding rule on the same address: about 30–60 s of refused
+Server >= 0.1.0 is required for `gcp-gce-tcp-load-balancer` >= 0.1.0 and for
+`gcp-gce-http-load-balancer`; older servers ignore those entries and attach nothing. Existing
+`target_pool` attachments from older tcp capability versions keep working. Upgrading the tcp
+capability recreates its forwarding rule on the same address: about 30–60 s of refused
 connections on `service_port`. If that apply fails with "IP address ... is already in use", the
 new rule was created before the old one finished deleting; apply again.
 
