@@ -57,7 +57,7 @@ When enabled, a GCP monitoring alert policy is created that notifies the given n
 EOF
 }
 
-variable "health_check_port" {
+variable "liveness_port" {
   type        = number
   default     = null
   description = <<EOF
@@ -67,7 +67,7 @@ grace after boot). Unset (default) disables auto-healing.
 EOF
 
   validation {
-    condition     = var.health_check_port == null || (var.health_check_port >= 1 && var.health_check_port <= 65535)
-    error_message = "health_check_port must be between 1 and 65535."
+    condition     = var.liveness_port == null || (var.liveness_port >= 1 && var.liveness_port <= 65535)
+    error_message = "liveness_port must be between 1 and 65535."
   }
 }

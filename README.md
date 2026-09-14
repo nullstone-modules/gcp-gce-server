@@ -38,12 +38,12 @@ a MIG-derived input is a module cycle). Capabilities keep the address, DNS, clie
 | `type` | Capability | Server creates |
 |--------|------------|----------------|
 | (none) | `gcp-gce-tcp-load-balancer` < 0.1.0 | nothing; MIG `target_pools` lists `target_pool`. Legacy: no health check, and the MIG silently drops a recreated pool. Kept so existing attachments survive an upgrade; do not use for new capabilities |
-| `tcp`, `proxied = false` | `gcp-gce-tcp-load-balancer` >= 0.1.0 | `google_compute_region_health_check` (TCP on `server_port`), `google_compute_region_backend_service` (`scheme` = `EXTERNAL` or `INTERNAL`, `TCP`, `CONNECTION`), `google_compute_forwarding_rule` `<name>-<service_port>` on `ip_address`. `INTERNAL` binds to the VPC and private subnet with global access |
-| `tcp`, `proxied = true` | `gcp-gce-tcp-load-balancer` with `proxied` | `google_compute_health_check` (TCP on `server_port`), `google_compute_backend_service` (`EXTERNAL_MANAGED`, `TCP`, `port_name`), `google_compute_target_tcp_proxy` (`PROXY_V1` when `proxy_protocol`), `google_compute_global_forwarding_rule` `<name>-<service_port>` on `ip_address`; MIG named port `port_name` → `server_port` |
+| `tcp`, `global = false` | `gcp-gce-tcp-load-balancer` >= 0.1.0 | `google_compute_region_health_check` (TCP on `server_port`), `google_compute_region_backend_service` (`scheme` = `EXTERNAL` or `INTERNAL`, `TCP`, `CONNECTION`), `google_compute_forwarding_rule` `<name>-<service_port>` on `ip_address`. `INTERNAL` binds to the VPC and the public (ingress) subnet with global access |
+| `tcp`, `global = true` | `gcp-gce-tcp-load-balancer` with `global` | `google_compute_health_check` (TCP on `server_port`), `google_compute_backend_service` (`EXTERNAL_MANAGED`, `TCP`, `port_name`), `google_compute_target_tcp_proxy` (`PROXY_V1` when `proxy_protocol`), `google_compute_global_forwarding_rule` `<name>-<service_port>` on `ip_address`; MIG named port `port_name` → `server_port` |
 | `http` | `gcp-gce-http-load-balancer` | `google_compute_health_check` (HTTP `health_check.path` on `server_port`), `google_compute_backend_service` (`EXTERNAL_MANAGED`, `HTTP`, `port_name`), `google_compute_url_map`, `google_compute_target_https_proxy` (`certificate_map_id`), `google_compute_global_forwarding_rule` `<name>-443` on `ip_address`; MIG named port `port_name` → `server_port` |
 
 Variant flags default to the plain external form when absent. Combinations that need a
-proxy-only subnet (internal proxied `tcp`; `http` with `scope = "regional"` or
+proxy-only subnet (internal global `tcp`; `http` with `scope = "regional"` or
 `scheme = "INTERNAL_MANAGED"`) fail the plan with a message; gcp-network does not create one yet.
 
 Entry shapes:
@@ -55,12 +55,12 @@ Entry shapes:
   type           = "tcp"
   name           = "<res name>"
   scheme         = "EXTERNAL"            # or INTERNAL (passthrough only)
-  proxied        = false                 # true = global proxy NLB; ip_address is then a global address
-  proxy_protocol = false                 # proxied only
+  global         = false                 # true = global proxy NLB (not passthrough); ip_address is then a global address
+  proxy_protocol = false                 # global only
   ip_address     = "<address>"
   service_port   = 22
   server_port    = 2022
-  port_name      = "tcp-2022"            # MIG named port, used only when proxied
+  port_name      = "tcp-2022"            # MIG named port, used only when global
   health_check   = { interval_sec = 5, timeout_sec = 4, healthy_threshold = 2, unhealthy_threshold = 2 }
 }
 
@@ -96,12 +96,14 @@ gcloud compute backend-services get-health <name> --global            # http
 Expect `healthState: HEALTHY`. Then hit the listener: `ssh-keyscan -p <service_port> <ip>` for
 a TCP service, `curl -sI https://<fqdn>` for HTTP.
 
-## MIG health check (`health_check_port`)
+## Liveness (`liveness_port`)
 
 Unset by default. When set, a TCP health check on that port (10 s interval, 3 failures) is
 attached to the MIG with a 300 s boot grace period, and a firewall rule
-`<name>-allow-hc-mig` admits the probe ranges to that port. A failing instance is recreated. This is
-the VM liveness check and is independent of any load balancer health check.
+`<name>-allow-hc-liveness` admits the probe ranges to that port. A failing instance is recreated. This is
+the Kubernetes liveness idea applied to a VM: fail it and the instance is replaced. Load balancer
+health checks on the capabilities are the readiness side: fail one and the instance only stops
+receiving that listener's traffic.
 
 ## Secrets contract
 

@@ -15,7 +15,7 @@ locals {
   lb_tcp = {
     for lb in local.capabilities.load_balancers : lb.cap_tf_id => merge({
       scheme         = "EXTERNAL"
-      proxied        = false
+      global         = false
       proxy_protocol = false
       port_name      = "tcp-${lb.server_port}"
     }, lb) if try(lb.type, "target_pool") == "tcp"
@@ -27,33 +27,33 @@ locals {
     }, lb) if try(lb.type, "target_pool") == "http"
   }
 
-  # tcp variants: regional passthrough (EXTERNAL or INTERNAL) or global external proxy.
-  lb_tcp_passthrough = { for k, lb in local.lb_tcp : k => lb if !lb.proxied }
-  lb_tcp_proxied     = { for k, lb in local.lb_tcp : k => lb if lb.proxied }
+  # tcp variants: regional passthrough (EXTERNAL or INTERNAL) or global, which is proxied.
+  lb_tcp_passthrough = { for k, lb in local.lb_tcp : k => lb if !lb.global }
+  lb_tcp_global      = { for k, lb in local.lb_tcp : k => lb if lb.global }
 
   # Variants that need a proxy-only subnet in the VPC, which gcp-network does not create yet.
   lb_unsupported = concat(
-    [for k, lb in local.lb_tcp : "${k} (internal proxied tcp)" if lb.proxied && lb.scheme == "INTERNAL"],
+    [for k, lb in local.lb_tcp : "${k} (internal global tcp)" if lb.global && lb.scheme == "INTERNAL"],
     [for k, lb in local.lb_http : "${k} (${lb.scope} ${lb.scheme} http)" if lb.scope != "global" || lb.scheme != "EXTERNAL_MANAGED"],
   )
 
   target_pools = [for lb in local.lb_target_pools : lb.target_pool]
 
-  # MIG named ports for proxied backend services (port_name -> server_port).
+  # MIG named ports for global backend services (port_name -> server_port).
   named_ports = merge(
     { for lb in values(local.lb_http) : lb.port_name => lb.server_port },
-    { for lb in values(local.lb_tcp_proxied) : lb.port_name => lb.server_port },
+    { for lb in values(local.lb_tcp_global) : lb.port_name => lb.server_port },
   )
 
-  # Google health-check probe sources. Proxied load balancers (http, proxied tcp) also deliver
+  # Google health-check probe sources. Proxied load balancers (http, global tcp) also deliver
   # client traffic from these ranges, so one rule per type covers both.
   # https://cloud.google.com/load-balancing/docs/health-check-concepts#ip-ranges
   health_check_source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
 
   health_check_ports = {
-    tcp  = [for lb in values(local.lb_tcp) : lb.server_port]
-    http = [for lb in values(local.lb_http) : lb.server_port]
-    mig  = var.health_check_port == null ? [] : [var.health_check_port]
+    tcp      = [for lb in values(local.lb_tcp) : lb.server_port]
+    http     = [for lb in values(local.lb_http) : lb.server_port]
+    liveness = var.liveness_port == null ? [] : [var.liveness_port]
   }
   health_check_firewalls = { for type, ports in local.health_check_ports : type => distinct(ports) if length(ports) > 0 }
 }
@@ -119,16 +119,16 @@ resource "google_compute_forwarding_rule" "tcp" {
   ip_address            = each.value.ip_address
   backend_service       = google_compute_region_backend_service.tcp[each.key].id
   network               = each.value.scheme == "INTERNAL" ? local.vpc_name : null
-  subnetwork            = each.value.scheme == "INTERNAL" ? local.private_subnet_names[0] : null
+  subnetwork            = each.value.scheme == "INTERNAL" ? local.public_subnet_names[0] : null
   # Internal: reachable from clients in any region (VPN, peering, tailnet exit nodes).
   allow_global_access = each.value.scheme == "INTERNAL" ? true : null
   labels              = local.labels
 }
 
-# --- type = "tcp", proxied: global external proxy NLB ------------------------------------------
+# --- type = "tcp", global = true: global external proxy NLB (no passthrough) --------------------
 
-resource "google_compute_health_check" "tcp_proxy" {
-  for_each = local.lb_tcp_proxied
+resource "google_compute_health_check" "tcp_global" {
+  for_each = local.lb_tcp_global
 
   name                = each.value.name
   check_interval_sec  = each.value.health_check.interval_sec
@@ -141,15 +141,15 @@ resource "google_compute_health_check" "tcp_proxy" {
   }
 }
 
-resource "google_compute_backend_service" "tcp_proxy" {
-  for_each = local.lb_tcp_proxied
+resource "google_compute_backend_service" "tcp_global" {
+  for_each = local.lb_tcp_global
 
   name                  = each.value.name
   load_balancing_scheme = "EXTERNAL_MANAGED"
   protocol              = "TCP"
   port_name             = each.value.port_name
   timeout_sec           = 30
-  health_checks         = [google_compute_health_check.tcp_proxy[each.key].id]
+  health_checks         = [google_compute_health_check.tcp_global[each.key].id]
 
   backend {
     group           = google_compute_region_instance_group_manager.this.instance_group
@@ -158,23 +158,23 @@ resource "google_compute_backend_service" "tcp_proxy" {
   }
 }
 
-resource "google_compute_target_tcp_proxy" "tcp_proxy" {
-  for_each = local.lb_tcp_proxied
+resource "google_compute_target_tcp_proxy" "tcp_global" {
+  for_each = local.lb_tcp_global
 
   name            = each.value.name
-  backend_service = google_compute_backend_service.tcp_proxy[each.key].id
+  backend_service = google_compute_backend_service.tcp_global[each.key].id
   proxy_header    = each.value.proxy_protocol ? "PROXY_V1" : "NONE"
 }
 
-resource "google_compute_global_forwarding_rule" "tcp_proxy" {
-  for_each = local.lb_tcp_proxied
+resource "google_compute_global_forwarding_rule" "tcp_global" {
+  for_each = local.lb_tcp_global
 
   name                  = "${each.value.name}-${each.value.service_port}"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   ip_protocol           = "TCP"
   port_range            = tostring(each.value.service_port)
   ip_address            = each.value.ip_address
-  target                = google_compute_target_tcp_proxy.tcp_proxy[each.key].id
+  target                = google_compute_target_tcp_proxy.tcp_global[each.key].id
   labels                = local.labels
 }
 
@@ -239,18 +239,18 @@ resource "google_compute_global_forwarding_rule" "http" {
   labels                = local.labels
 }
 
-# --- MIG health check (auto-healing) ---------------------------------------------------------
+# --- Liveness: MIG health check that recreates a failing instance --------------------------
 
-resource "google_compute_health_check" "mig" {
-  count = var.health_check_port == null ? 0 : 1
+resource "google_compute_health_check" "liveness" {
+  count = var.liveness_port == null ? 0 : 1
 
-  name                = "${local.resource_name}-mig"
+  name                = "${local.resource_name}-liveness"
   check_interval_sec  = 10
   timeout_sec         = 5
   healthy_threshold   = 2
   unhealthy_threshold = 3
 
   tcp_health_check {
-    port = var.health_check_port
+    port = var.liveness_port
   }
 }

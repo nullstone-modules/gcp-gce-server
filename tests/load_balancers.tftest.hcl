@@ -21,6 +21,7 @@ mock_provider "ns" {
       outputs = {
         vpc_name             = "primary-vpc"
         private_subnet_names = ["primary-private-a"]
+        public_subnet_names  = ["primary-public-a"]
         notification_name    = ""
       }
     }
@@ -99,24 +100,24 @@ run "mixed_load_balancers" {
   }
 
   assert {
-    condition     = resource.google_compute_forwarding_rule.tcp["sftp-internal"].load_balancing_scheme == "INTERNAL" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].subnetwork == "primary-private-a" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].ip_address == "10.0.1.10" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].allow_global_access == true
-    error_message = "internal forwarding rule must sit in the private subnet with global access"
+    condition     = resource.google_compute_forwarding_rule.tcp["sftp-internal"].load_balancing_scheme == "INTERNAL" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].subnetwork == "primary-public-a" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].ip_address == "10.0.1.10" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].allow_global_access == true
+    error_message = "internal forwarding rule must sit in the public (ingress) subnet with global access"
   }
 
-  # tcp proxied: global health check, backend service on a named port, TCP proxy, global forwarding rule.
+  # tcp global: global health check, backend service on a named port, TCP proxy, global forwarding rule.
   assert {
-    condition     = keys(resource.google_compute_global_forwarding_rule.tcp_proxy) == ["sftp-proxied"] && keys(resource.google_compute_target_tcp_proxy.tcp_proxy) == ["sftp-proxied"] && keys(resource.google_compute_backend_service.tcp_proxy) == ["sftp-proxied"] && keys(resource.google_compute_health_check.tcp_proxy) == ["sftp-proxied"]
-    error_message = "proxied tcp entries must produce the global proxy chain"
-  }
-
-  assert {
-    condition     = resource.google_compute_backend_service.tcp_proxy["sftp-proxied"].load_balancing_scheme == "EXTERNAL_MANAGED" && resource.google_compute_backend_service.tcp_proxy["sftp-proxied"].protocol == "TCP" && resource.google_compute_backend_service.tcp_proxy["sftp-proxied"].port_name == "tcp-2022"
-    error_message = "proxied backend service must be EXTERNAL_MANAGED TCP on the named port"
+    condition     = keys(resource.google_compute_global_forwarding_rule.tcp_global) == ["sftp-global"] && keys(resource.google_compute_target_tcp_proxy.tcp_global) == ["sftp-global"] && keys(resource.google_compute_backend_service.tcp_global) == ["sftp-global"] && keys(resource.google_compute_health_check.tcp_global) == ["sftp-global"]
+    error_message = "global tcp entries must produce the global proxy chain"
   }
 
   assert {
-    condition     = resource.google_compute_target_tcp_proxy.tcp_proxy["sftp-proxied"].proxy_header == "PROXY_V1" && resource.google_compute_global_forwarding_rule.tcp_proxy["sftp-proxied"].port_range == "22" && resource.google_compute_global_forwarding_rule.tcp_proxy["sftp-proxied"].ip_address == "203.0.113.30"
-    error_message = "proxied chain must honour proxy_protocol, service_port, and the global address"
+    condition     = resource.google_compute_backend_service.tcp_global["sftp-global"].load_balancing_scheme == "EXTERNAL_MANAGED" && resource.google_compute_backend_service.tcp_global["sftp-global"].protocol == "TCP" && resource.google_compute_backend_service.tcp_global["sftp-global"].port_name == "tcp-2022"
+    error_message = "global backend service must be EXTERNAL_MANAGED TCP on the named port"
+  }
+
+  assert {
+    condition     = resource.google_compute_target_tcp_proxy.tcp_global["sftp-global"].proxy_header == "PROXY_V1" && resource.google_compute_global_forwarding_rule.tcp_global["sftp-global"].port_range == "22" && resource.google_compute_global_forwarding_rule.tcp_global["sftp-global"].ip_address == "203.0.113.30"
+    error_message = "global chain must honour proxy_protocol, service_port, and the global address"
   }
 
   assert {
@@ -162,7 +163,7 @@ run "mixed_load_balancers" {
 
   assert {
     condition     = toset([for np in resource.google_compute_region_instance_group_manager.this.named_port : "${np.name}:${np.port}"]) == toset(["http-8080:8080", "tcp-2022:2022"])
-    error_message = "MIG must expose named ports for http and proxied tcp entries"
+    error_message = "MIG must expose named ports for http and global tcp entries"
   }
 
   # Health-check ingress: one rule per type on the probed port, probe ranges only.
@@ -182,7 +183,7 @@ run "mixed_load_balancers" {
   }
 
   assert {
-    condition     = length(resource.google_compute_health_check.mig) == 0 && length(resource.google_compute_region_instance_group_manager.this.auto_healing_policies) == 0
+    condition     = length(resource.google_compute_health_check.liveness) == 0 && length(resource.google_compute_region_instance_group_manager.this.auto_healing_policies) == 0
     error_message = "auto-healing must be off by default"
   }
 }
@@ -191,12 +192,12 @@ run "auto_healing" {
   command = plan
 
   variables {
-    health_check_port = 2022
+    liveness_port = 2022
   }
 
   assert {
-    condition     = length(resource.google_compute_health_check.mig) == 1 && resource.google_compute_health_check.mig[0].tcp_health_check[0].port == 2022
-    error_message = "health_check_port must create a TCP health check"
+    condition     = length(resource.google_compute_health_check.liveness) == 1 && resource.google_compute_health_check.liveness[0].tcp_health_check[0].port == 2022
+    error_message = "liveness_port must create a TCP health check"
   }
 
   assert {
@@ -205,7 +206,7 @@ run "auto_healing" {
   }
 
   assert {
-    condition     = keys(resource.google_compute_firewall.health_check) == ["http", "mig", "tcp"] && flatten([for a in resource.google_compute_firewall.health_check["mig"].allow : a.ports]) == ["2022"]
+    condition     = keys(resource.google_compute_firewall.health_check) == ["http", "liveness", "tcp"] && flatten([for a in resource.google_compute_firewall.health_check["liveness"].allow : a.ports]) == ["2022"]
     error_message = "MIG health-check probes need their own firewall rule"
   }
 }

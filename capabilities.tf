@@ -128,12 +128,12 @@ locals {
         type           = "tcp"
         name           = "app-fghij"
         scheme         = "EXTERNAL"     # EXTERNAL | INTERNAL (passthrough scope)
-        proxied        = false          # true = global external proxy NLB on a global address
-        proxy_protocol = false          # proxied only: PROXY protocol v1 to the VM
+        global         = false          # true = global external proxy NLB on a global address
+        proxy_protocol = false          # global only: PROXY protocol v1 to the VM
         ip_address     = "203.0.113.10" # regional external address
         service_port   = 22             # external port on the forwarding rule
         server_port    = 2022           # port probed on the VM
-        port_name      = "tcp-2022"     # MIG named port, used only when proxied
+        port_name      = "tcp-2022"     # MIG named port, used only when global
         health_check = {
           interval_sec        = 5
           timeout_sec         = 4
@@ -146,9 +146,9 @@ locals {
         type           = "tcp"
         name           = "app-pqrst"
         scheme         = "INTERNAL"
-        proxied        = false
+        global         = false
         proxy_protocol = false
-        ip_address     = "10.0.1.10" # address in the private subnet
+        ip_address     = "10.0.1.10" # address in the public (ingress) subnet
         service_port   = 22
         server_port    = 2022
         port_name      = "tcp-2022"
@@ -160,11 +160,11 @@ locals {
         }
       },
       {
-        cap_tf_id      = "sftp-proxied"
+        cap_tf_id      = "sftp-global"
         type           = "tcp"
         name           = "app-uvwxy"
         scheme         = "EXTERNAL"
-        proxied        = true
+        global         = true
         proxy_protocol = true
         ip_address     = "203.0.113.30" # global external address
         service_port   = 22
