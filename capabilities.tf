@@ -124,12 +124,52 @@ locals {
         target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>"
       },
       {
-        cap_tf_id    = "sftp-ingress"
-        type         = "tcp"
-        name         = "app-fghij"
-        ip_address   = "203.0.113.10" # regional external address
-        service_port = 22             # external port on the forwarding rule
-        server_port  = 2022           # port probed on the VM
+        cap_tf_id      = "sftp-ingress"
+        type           = "tcp"
+        name           = "app-fghij"
+        scheme         = "EXTERNAL"     # EXTERNAL | INTERNAL (passthrough scope)
+        proxied        = false          # true = global external proxy NLB on a global address
+        proxy_protocol = false          # proxied only: PROXY protocol v1 to the VM
+        ip_address     = "203.0.113.10" # regional external address
+        service_port   = 22             # external port on the forwarding rule
+        server_port    = 2022           # port probed on the VM
+        port_name      = "tcp-2022"     # MIG named port, used only when proxied
+        health_check = {
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
+      {
+        cap_tf_id      = "sftp-internal"
+        type           = "tcp"
+        name           = "app-pqrst"
+        scheme         = "INTERNAL"
+        proxied        = false
+        proxy_protocol = false
+        ip_address     = "10.0.1.10" # address in the private subnet
+        service_port   = 22
+        server_port    = 2022
+        port_name      = "tcp-2022"
+        health_check = {
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
+      {
+        cap_tf_id      = "sftp-proxied"
+        type           = "tcp"
+        name           = "app-uvwxy"
+        scheme         = "EXTERNAL"
+        proxied        = true
+        proxy_protocol = true
+        ip_address     = "203.0.113.30" # global external address
+        service_port   = 22
+        server_port    = 2022
+        port_name      = "tcp-2022"
         health_check = {
           interval_sec        = 5
           timeout_sec         = 4
@@ -140,6 +180,8 @@ locals {
       {
         cap_tf_id          = "web-ingress"
         type               = "http"
+        scope              = "global"           # regional needs a proxy-only subnet; rejected today
+        scheme             = "EXTERNAL_MANAGED" # INTERNAL_MANAGED likewise
         name               = "app-klmno"
         ip_address         = "203.0.113.20" # global external address
         certificate_map_id = "projects/<project>/locations/global/certificateMaps/<name>"

@@ -108,6 +108,13 @@ resource "google_compute_region_instance_group_manager" "this" {
     }
   }
 
+  lifecycle {
+    precondition {
+      condition     = length(local.lb_unsupported) == 0
+      error_message = "Unsupported load balancer variants: ${join(", ", local.lb_unsupported)}. Regional and internal proxied load balancers need a proxy-only subnet, which gcp-network does not create yet."
+    }
+  }
+
   depends_on = [google_project_service.compute]
 }
 

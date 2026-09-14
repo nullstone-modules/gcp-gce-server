@@ -11,17 +11,42 @@ locals {
 
   # Keyed on the capability id, not lb.name: name carries the capability's random suffix, which
   # is unknown on the first apply, and for_each keys must be known at plan time. One entry per
-  # capability instance.
-  lb_tcp  = { for lb in local.capabilities.load_balancers : lb.cap_tf_id => lb if try(lb.type, "target_pool") == "tcp" }
-  lb_http = { for lb in local.capabilities.load_balancers : lb.cap_tf_id => lb if try(lb.type, "target_pool") == "http" }
+  # capability instance. Variant flags default to the plain external form.
+  lb_tcp = {
+    for lb in local.capabilities.load_balancers : lb.cap_tf_id => merge({
+      scheme         = "EXTERNAL"
+      proxied        = false
+      proxy_protocol = false
+      port_name      = "tcp-${lb.server_port}"
+    }, lb) if try(lb.type, "target_pool") == "tcp"
+  }
+  lb_http = {
+    for lb in local.capabilities.load_balancers : lb.cap_tf_id => merge({
+      scope  = "global"
+      scheme = "EXTERNAL_MANAGED"
+    }, lb) if try(lb.type, "target_pool") == "http"
+  }
+
+  # tcp variants: regional passthrough (EXTERNAL or INTERNAL) or global external proxy.
+  lb_tcp_passthrough = { for k, lb in local.lb_tcp : k => lb if !lb.proxied }
+  lb_tcp_proxied     = { for k, lb in local.lb_tcp : k => lb if lb.proxied }
+
+  # Variants that need a proxy-only subnet in the VPC, which gcp-network does not create yet.
+  lb_unsupported = concat(
+    [for k, lb in local.lb_tcp : "${k} (internal proxied tcp)" if lb.proxied && lb.scheme == "INTERNAL"],
+    [for k, lb in local.lb_http : "${k} (${lb.scope} ${lb.scheme} http)" if lb.scope != "global" || lb.scheme != "EXTERNAL_MANAGED"],
+  )
 
   target_pools = [for lb in local.lb_target_pools : lb.target_pool]
 
-  # MIG named ports for HTTP backend services (port_name -> server_port).
-  named_ports = { for lb in values(local.lb_http) : lb.port_name => lb.server_port }
+  # MIG named ports for proxied backend services (port_name -> server_port).
+  named_ports = merge(
+    { for lb in values(local.lb_http) : lb.port_name => lb.server_port },
+    { for lb in values(local.lb_tcp_proxied) : lb.port_name => lb.server_port },
+  )
 
-  # Google health-check probe sources. For the global HTTPS LB these ranges also carry the
-  # proxied client traffic, so one rule per type covers both.
+  # Google health-check probe sources. Proxied load balancers (http, proxied tcp) also deliver
+  # client traffic from these ranges, so one rule per type covers both.
   # https://cloud.google.com/load-balancing/docs/health-check-concepts#ip-ranges
   health_check_source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
 
@@ -47,10 +72,10 @@ resource "google_compute_firewall" "health_check" {
   }
 }
 
-# --- type = "tcp": regional external passthrough NLB -----------------------------------------
+# --- type = "tcp", passthrough: regional external or internal NLB ------------------------------
 
 resource "google_compute_region_health_check" "tcp" {
-  for_each = local.lb_tcp
+  for_each = local.lb_tcp_passthrough
 
   name                = each.value.name
   region              = local.region
@@ -65,12 +90,13 @@ resource "google_compute_region_health_check" "tcp" {
 }
 
 resource "google_compute_region_backend_service" "tcp" {
-  for_each = local.lb_tcp
+  for_each = local.lb_tcp_passthrough
 
   name                  = each.value.name
   region                = local.region
-  load_balancing_scheme = "EXTERNAL"
+  load_balancing_scheme = each.value.scheme
   protocol              = "TCP"
+  network               = each.value.scheme == "INTERNAL" ? local.vpc_name : null
   health_checks         = [google_compute_region_health_check.tcp[each.key].id]
 
   backend {
@@ -83,15 +109,72 @@ resource "google_compute_region_backend_service" "tcp" {
 # Suffixed with the port so it cannot collide with a capability-owned forwarding rule of the
 # same base name being deleted in the same apply (upgrading the tcp capability from 0.0.x).
 resource "google_compute_forwarding_rule" "tcp" {
-  for_each = local.lb_tcp
+  for_each = local.lb_tcp_passthrough
 
   name                  = "${each.value.name}-${each.value.service_port}"
   region                = local.region
-  load_balancing_scheme = "EXTERNAL"
+  load_balancing_scheme = each.value.scheme
   ip_protocol           = "TCP"
   ports                 = [tostring(each.value.service_port)]
   ip_address            = each.value.ip_address
   backend_service       = google_compute_region_backend_service.tcp[each.key].id
+  network               = each.value.scheme == "INTERNAL" ? local.vpc_name : null
+  subnetwork            = each.value.scheme == "INTERNAL" ? local.private_subnet_names[0] : null
+  # Internal: reachable from clients in any region (VPN, peering, tailnet exit nodes).
+  allow_global_access = each.value.scheme == "INTERNAL" ? true : null
+  labels              = local.labels
+}
+
+# --- type = "tcp", proxied: global external proxy NLB ------------------------------------------
+
+resource "google_compute_health_check" "tcp_proxy" {
+  for_each = local.lb_tcp_proxied
+
+  name                = each.value.name
+  check_interval_sec  = each.value.health_check.interval_sec
+  timeout_sec         = each.value.health_check.timeout_sec
+  healthy_threshold   = each.value.health_check.healthy_threshold
+  unhealthy_threshold = each.value.health_check.unhealthy_threshold
+
+  tcp_health_check {
+    port = each.value.server_port
+  }
+}
+
+resource "google_compute_backend_service" "tcp_proxy" {
+  for_each = local.lb_tcp_proxied
+
+  name                  = each.value.name
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  protocol              = "TCP"
+  port_name             = each.value.port_name
+  timeout_sec           = 30
+  health_checks         = [google_compute_health_check.tcp_proxy[each.key].id]
+
+  backend {
+    group           = google_compute_region_instance_group_manager.this.instance_group
+    balancing_mode  = "UTILIZATION"
+    capacity_scaler = 1.0
+  }
+}
+
+resource "google_compute_target_tcp_proxy" "tcp_proxy" {
+  for_each = local.lb_tcp_proxied
+
+  name            = each.value.name
+  backend_service = google_compute_backend_service.tcp_proxy[each.key].id
+  proxy_header    = each.value.proxy_protocol ? "PROXY_V1" : "NONE"
+}
+
+resource "google_compute_global_forwarding_rule" "tcp_proxy" {
+  for_each = local.lb_tcp_proxied
+
+  name                  = "${each.value.name}-${each.value.service_port}"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  ip_protocol           = "TCP"
+  port_range            = tostring(each.value.service_port)
+  ip_address            = each.value.ip_address
+  target                = google_compute_target_tcp_proxy.tcp_proxy[each.key].id
   labels                = local.labels
 }
 

@@ -81,10 +81,42 @@ run "mixed_load_balancers" {
     error_message = "MIG target_pools must list the target_pool entries"
   }
 
-  # tcp: regional health check, backend service, forwarding rule keyed on the capability id.
+  # tcp passthrough: regional health check, backend service, forwarding rule keyed on the capability id.
   assert {
-    condition     = keys(resource.google_compute_forwarding_rule.tcp) == ["sftp-ingress"] && keys(resource.google_compute_region_backend_service.tcp) == ["sftp-ingress"] && keys(resource.google_compute_region_health_check.tcp) == ["sftp-ingress"]
-    error_message = "tcp entries must produce one health check, backend service, and forwarding rule"
+    condition     = keys(resource.google_compute_forwarding_rule.tcp) == ["sftp-ingress", "sftp-internal"] && keys(resource.google_compute_region_backend_service.tcp) == ["sftp-ingress", "sftp-internal"] && keys(resource.google_compute_region_health_check.tcp) == ["sftp-ingress", "sftp-internal"]
+    error_message = "passthrough tcp entries must produce one regional health check, backend service, and forwarding rule each"
+  }
+
+  assert {
+    condition     = resource.google_compute_region_backend_service.tcp["sftp-ingress"].network == null
+    error_message = "external passthrough must not bind to the VPC subnet"
+  }
+
+  # tcp internal passthrough: INTERNAL scheme bound to the private subnet.
+  assert {
+    condition     = resource.google_compute_region_backend_service.tcp["sftp-internal"].load_balancing_scheme == "INTERNAL" && resource.google_compute_region_backend_service.tcp["sftp-internal"].network == "primary-vpc"
+    error_message = "internal backend service must be INTERNAL on the VPC"
+  }
+
+  assert {
+    condition     = resource.google_compute_forwarding_rule.tcp["sftp-internal"].load_balancing_scheme == "INTERNAL" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].subnetwork == "primary-private-a" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].ip_address == "10.0.1.10" && resource.google_compute_forwarding_rule.tcp["sftp-internal"].allow_global_access == true
+    error_message = "internal forwarding rule must sit in the private subnet with global access"
+  }
+
+  # tcp proxied: global health check, backend service on a named port, TCP proxy, global forwarding rule.
+  assert {
+    condition     = keys(resource.google_compute_global_forwarding_rule.tcp_proxy) == ["sftp-proxied"] && keys(resource.google_compute_target_tcp_proxy.tcp_proxy) == ["sftp-proxied"] && keys(resource.google_compute_backend_service.tcp_proxy) == ["sftp-proxied"] && keys(resource.google_compute_health_check.tcp_proxy) == ["sftp-proxied"]
+    error_message = "proxied tcp entries must produce the global proxy chain"
+  }
+
+  assert {
+    condition     = resource.google_compute_backend_service.tcp_proxy["sftp-proxied"].load_balancing_scheme == "EXTERNAL_MANAGED" && resource.google_compute_backend_service.tcp_proxy["sftp-proxied"].protocol == "TCP" && resource.google_compute_backend_service.tcp_proxy["sftp-proxied"].port_name == "tcp-2022"
+    error_message = "proxied backend service must be EXTERNAL_MANAGED TCP on the named port"
+  }
+
+  assert {
+    condition     = resource.google_compute_target_tcp_proxy.tcp_proxy["sftp-proxied"].proxy_header == "PROXY_V1" && resource.google_compute_global_forwarding_rule.tcp_proxy["sftp-proxied"].port_range == "22" && resource.google_compute_global_forwarding_rule.tcp_proxy["sftp-proxied"].ip_address == "203.0.113.30"
+    error_message = "proxied chain must honour proxy_protocol, service_port, and the global address"
   }
 
   assert {
@@ -129,8 +161,8 @@ run "mixed_load_balancers" {
   }
 
   assert {
-    condition     = [for np in resource.google_compute_region_instance_group_manager.this.named_port : "${np.name}:${np.port}"] == ["http-8080:8080"]
-    error_message = "MIG must expose the http named port"
+    condition     = toset([for np in resource.google_compute_region_instance_group_manager.this.named_port : "${np.name}:${np.port}"]) == toset(["http-8080:8080", "tcp-2022:2022"])
+    error_message = "MIG must expose named ports for http and proxied tcp entries"
   }
 
   # Health-check ingress: one rule per type on the probed port, probe ranges only.
