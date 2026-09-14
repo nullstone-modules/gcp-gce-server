@@ -98,7 +98,7 @@ a TCP service, `curl -sI https://<fqdn>` for HTTP.
 
 ## Liveness (`liveness_port`)
 
-Unset by default. When set, a TCP health check on that port (10 s interval, 3 failures) is
+`0` (default) is off. When set, a TCP health check on that port (10 s interval, 3 failures) is
 attached to the MIG with a 300 s boot grace period, and a firewall rule
 `<name>-allow-hc-liveness` admits the probe ranges to that port. A failing instance is recreated. This is
 the Kubernetes liveness idea applied to a VM: fail it and the instance is replaced. Load balancer

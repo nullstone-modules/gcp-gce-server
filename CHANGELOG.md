@@ -5,5 +5,5 @@
 * `tcp`: creates a regional TCP health check, `EXTERNAL` backend service on the MIG instance group, and forwarding rule on the capability's address.
 * `http`: creates an HTTP health check, `EXTERNAL_MANAGED` backend service on a MIG named port, URL map, HTTPS proxy on the subdomain certificate map, and global forwarding rule on 443.
 * One health-check firewall per attached type admitting Google's probe ranges to the probed port.
-* Added `liveness_port`: optional TCP liveness check; a failing instance is recreated (default off).
+* Added `liveness_port`: optional TCP liveness check; a failing instance is recreated (`0`, the default, is off).
 * Added `tofu test` planning the capabilities.tf placeholder with one entry per type.

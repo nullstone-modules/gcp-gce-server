@@ -53,7 +53,7 @@ locals {
   health_check_ports = {
     tcp      = [for lb in values(local.lb_tcp) : lb.server_port]
     http     = [for lb in values(local.lb_http) : lb.server_port]
-    liveness = var.liveness_port == null ? [] : [var.liveness_port]
+    liveness = var.liveness_port == 0 ? [] : [var.liveness_port]
   }
   health_check_firewalls = { for type, ports in local.health_check_ports : type => distinct(ports) if length(ports) > 0 }
 }
@@ -242,7 +242,7 @@ resource "google_compute_global_forwarding_rule" "http" {
 # --- Liveness: MIG health check that recreates a failing instance --------------------------
 
 resource "google_compute_health_check" "liveness" {
-  count = var.liveness_port == null ? 0 : 1
+  count = var.liveness_port == 0 ? 0 : 1
 
   name                = "${local.resource_name}-liveness"
   check_interval_sec  = 10
