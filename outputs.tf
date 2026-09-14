@@ -13,7 +13,7 @@ output "region" {
   description = "string ||| The GCP region where the instance is located"
 }
 
-output "zone" {
-  value       = local.available_zones[0]
+output "zones" {
+  value       = local.available_zones
   description = "string ||| First zone in the MIG distribution policy (MIG spans all available zones in the region)"
 }
