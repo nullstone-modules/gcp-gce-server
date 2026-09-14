@@ -112,12 +112,12 @@ locals {
 
     // load_balancers: ingress capabilities emit a spec; `type` selects the shape and this module
     // creates whatever must name the MIG instance group (see load-balancers.tf and README).
-    // Entries without `type` are target pools (capability versions that predate the spec).
+    // Entries without `type` are target pools from gcp-gce-tcp-load-balancer < 0.1.0, which emitted
+    // { port, target_pool }; only target_pool is read.
     load_balancers = [
       {
         cap_tf_id   = "legacy-ingress"
-        type        = "target_pool"
-        name        = "app-abcde"
+        port        = "2222"
         target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>"
       },
       {

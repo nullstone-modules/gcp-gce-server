@@ -37,14 +37,14 @@ a MIG-derived input is a module cycle). Capabilities keep the address, DNS, clie
 
 | `type` | Capability | Server creates |
 |--------|------------|----------------|
-| `target_pool` (also entries without `type`) | `gcp-gce-tcp-load-balancer` < 0.1.0 | nothing; MIG `target_pools` lists the pool |
+| (none) | `gcp-gce-tcp-load-balancer` < 0.1.0 | nothing; MIG `target_pools` lists `target_pool` |
 | `tcp` | `gcp-gce-tcp-load-balancer` >= 0.1.0 | `google_compute_region_health_check` (TCP on `server_port`), `google_compute_region_backend_service` (`EXTERNAL`, `TCP`, `CONNECTION`), `google_compute_forwarding_rule` `<name>-<service_port>` on `ip_address` |
 | `http` | `gcp-gce-http-load-balancer` | `google_compute_health_check` (HTTP `health_check.path` on `server_port`), `google_compute_backend_service` (`EXTERNAL_MANAGED`, `HTTP`, `port_name`), `google_compute_url_map`, `google_compute_target_https_proxy` (`certificate_map_id`), `google_compute_global_forwarding_rule` `<name>-443` on `ip_address`; MIG named port `port_name` → `server_port` |
 
 Entry shapes:
 
 ```hcl
-{ type = "target_pool", name = "<res name>", target_pool = "<self_link>" }
+{ port = "22", target_pool = "<self_link>" }   # gcp-gce-tcp-load-balancer < 0.1.0; no type field
 
 {
   type         = "tcp"
@@ -85,11 +85,12 @@ gcloud compute backend-services get-health <name> --global            # http
 Expect `healthState: HEALTHY`. Then hit the listener: `ssh-keyscan -p <service_port> <ip>` for
 a TCP service, `curl -sI https://<fqdn>` for HTTP.
 
-## Auto-healing (`auto_healing_port`)
+## MIG health check (`health_check_port`)
 
 Unset by default. When set, a TCP health check on that port (10 s interval, 3 failures) is
 attached to the MIG with a 300 s boot grace period, and a firewall rule
-`<name>-allow-hc-autoheal` admits the probe ranges to that port. A failing instance is recreated.
+`<name>-allow-hc-mig` admits the probe ranges to that port. A failing instance is recreated. This is
+the VM liveness check and is independent of any load balancer health check.
 
 ## Secrets contract
 

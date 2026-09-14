@@ -100,7 +100,7 @@ resource "google_compute_region_instance_group_manager" "this" {
   }
 
   dynamic "auto_healing_policies" {
-    for_each = google_compute_health_check.auto_heal
+    for_each = google_compute_health_check.mig
 
     content {
       health_check      = auto_healing_policies.value.id

@@ -136,7 +136,7 @@ run "mixed_load_balancers" {
   # Health-check ingress: one rule per type on the probed port, probe ranges only.
   assert {
     condition     = keys(resource.google_compute_firewall.health_check) == ["http", "tcp"]
-    error_message = "one health-check firewall per attached type, none for auto-healing when unset"
+    error_message = "one health-check firewall per attached type, none for the MIG check when unset"
   }
 
   assert {
@@ -150,7 +150,7 @@ run "mixed_load_balancers" {
   }
 
   assert {
-    condition     = length(resource.google_compute_health_check.auto_heal) == 0 && length(resource.google_compute_region_instance_group_manager.this.auto_healing_policies) == 0
+    condition     = length(resource.google_compute_health_check.mig) == 0 && length(resource.google_compute_region_instance_group_manager.this.auto_healing_policies) == 0
     error_message = "auto-healing must be off by default"
   }
 }
@@ -159,12 +159,12 @@ run "auto_healing" {
   command = plan
 
   variables {
-    auto_healing_port = 2022
+    health_check_port = 2022
   }
 
   assert {
-    condition     = length(resource.google_compute_health_check.auto_heal) == 1 && resource.google_compute_health_check.auto_heal[0].tcp_health_check[0].port == 2022
-    error_message = "auto_healing_port must create a TCP health check"
+    condition     = length(resource.google_compute_health_check.mig) == 1 && resource.google_compute_health_check.mig[0].tcp_health_check[0].port == 2022
+    error_message = "health_check_port must create a TCP health check"
   }
 
   assert {
@@ -173,7 +173,7 @@ run "auto_healing" {
   }
 
   assert {
-    condition     = keys(resource.google_compute_firewall.health_check) == ["autoheal", "http", "tcp"] && flatten([for a in resource.google_compute_firewall.health_check["autoheal"].allow : a.ports]) == ["2022"]
-    error_message = "auto-healing probes need their own firewall rule"
+    condition     = keys(resource.google_compute_firewall.health_check) == ["http", "mig", "tcp"] && flatten([for a in resource.google_compute_firewall.health_check["mig"].allow : a.ports]) == ["2022"]
+    error_message = "MIG health-check probes need their own firewall rule"
   }
 }

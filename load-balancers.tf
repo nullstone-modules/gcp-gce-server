@@ -24,9 +24,9 @@ locals {
   health_check_source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
 
   health_check_ports = {
-    tcp      = [for lb in values(local.lb_tcp) : lb.server_port]
-    http     = [for lb in values(local.lb_http) : lb.server_port]
-    autoheal = var.auto_healing_port == null ? [] : [var.auto_healing_port]
+    tcp  = [for lb in values(local.lb_tcp) : lb.server_port]
+    http = [for lb in values(local.lb_http) : lb.server_port]
+    mig  = var.health_check_port == null ? [] : [var.health_check_port]
   }
   health_check_firewalls = { for type, ports in local.health_check_ports : type => distinct(ports) if length(ports) > 0 }
 }
@@ -154,18 +154,18 @@ resource "google_compute_global_forwarding_rule" "http" {
   labels                = local.labels
 }
 
-# --- MIG auto-healing ------------------------------------------------------------------------
+# --- MIG health check (auto-healing) ---------------------------------------------------------
 
-resource "google_compute_health_check" "auto_heal" {
-  count = var.auto_healing_port == null ? 0 : 1
+resource "google_compute_health_check" "mig" {
+  count = var.health_check_port == null ? 0 : 1
 
-  name                = "${local.resource_name}-autoheal"
+  name                = "${local.resource_name}-mig"
   check_interval_sec  = 10
   timeout_sec         = 5
   healthy_threshold   = 2
   unhealthy_threshold = 3
 
   tcp_health_check {
-    port = var.auto_healing_port
+    port = var.health_check_port
   }
 }
