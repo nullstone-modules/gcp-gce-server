@@ -27,7 +27,7 @@ locals {
     env = [
       {
         cap_tf_id = "x"
-        name      = ""
+        name      = "ENV_NAME"
         value     = ""
       }
     ]
@@ -35,7 +35,7 @@ locals {
     secrets = [
       {
         cap_tf_id = "x"
-        name      = ""
+        name      = "SECRET_NAME"
         value     = sensitive("")
       }
     ]
@@ -110,14 +110,46 @@ locals {
       }
     ]
 
-    // load_balancers: L4 LB capabilities export target pools; MIG sets target_pools.
+    // load_balancers: ingress capabilities emit a spec; `type` selects the shape and this module
+    // creates whatever must name the MIG instance group (see load-balancers.tf and README).
+    // Entries without `type` are target pools (capability versions that predate the spec).
     load_balancers = [
       {
-        cap_tf_id = "x"
-        port      = "2022"
-        # The full URL of all target pools to which new instances in the group are added. Updating the target pools attribute does not affect existing instances.
-        target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>" # usually, google_compute_target_pool.this.self_link
-      }
+        cap_tf_id   = "legacy-ingress"
+        type        = "target_pool"
+        name        = "app-abcde"
+        target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>"
+      },
+      {
+        cap_tf_id    = "sftp-ingress"
+        type         = "tcp"
+        name         = "app-fghij"
+        ip_address   = "203.0.113.10" # regional external address
+        service_port = 22             # external port on the forwarding rule
+        server_port  = 2022           # port probed on the VM
+        health_check = {
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
+      {
+        cap_tf_id          = "web-ingress"
+        type               = "http"
+        name               = "app-klmno"
+        ip_address         = "203.0.113.20" # global external address
+        certificate_map_id = "projects/<project>/locations/global/certificateMaps/<name>"
+        port_name          = "http-8080" # MIG named port
+        server_port        = 8080
+        health_check = {
+          path                = "/healthz"
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
     ]
   }
 }

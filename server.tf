@@ -14,9 +14,6 @@ locals {
   # GCP forbids mixing IPv4 and IPv6 in one firewall rule's source_ranges.
   iap_ssh_cidrs_v4 = ["35.235.240.0/20"]
   iap_ssh_cidrs_v6 = ["2600:2d00:1:7::/64"]
-
-  # Target pools from L4 LB capabilities; MIG registers instances into them.
-  target_pools = [for lb in local.capabilities.load_balancers : lb.target_pool]
 }
 
 resource "google_compute_instance_template" "this" {
@@ -92,6 +89,24 @@ resource "google_compute_region_instance_group_manager" "this" {
   }
 
   distribution_policy_zones = local.available_zones
+
+  dynamic "named_port" {
+    for_each = local.named_ports
+
+    content {
+      name = named_port.key
+      port = named_port.value
+    }
+  }
+
+  dynamic "auto_healing_policies" {
+    for_each = google_compute_health_check.auto_heal
+
+    content {
+      health_check      = auto_healing_policies.value.id
+      initial_delay_sec = 300
+    }
+  }
 
   depends_on = [google_project_service.compute]
 }

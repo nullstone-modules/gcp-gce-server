@@ -56,3 +56,18 @@ Configure CPU utilization alerting for the VM.
 When enabled, a GCP monitoring alert policy is created that notifies the given notification channel when CPU utilization exceeds the configured threshold (0-100).
 EOF
 }
+
+variable "auto_healing_port" {
+  type        = number
+  default     = null
+  description = <<EOF
+TCP port on the VM that must accept connections for the instance to be considered healthy.
+When set, the MIG recreates an instance that fails 3 consecutive probes (10 s interval, 300 s
+grace after boot). Unset (default) disables auto-healing.
+EOF
+
+  validation {
+    condition     = var.auto_healing_port == null || (var.auto_healing_port >= 1 && var.auto_healing_port <= 65535)
+    error_message = "auto_healing_port must be between 1 and 65535."
+  }
+}
