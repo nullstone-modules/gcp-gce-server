@@ -178,8 +178,13 @@ run "mixed_load_balancers" {
   }
 
   assert {
-    condition     = resource.google_compute_firewall.health_check["tcp"].source_ranges == toset(["35.191.0.0/16", "130.211.0.0/22"])
-    error_message = "health-check firewalls must allow only Google probe ranges"
+    condition     = resource.google_compute_firewall.health_check["tcp"].source_ranges == toset(["35.191.0.0/16", "130.211.0.0/22", "209.85.152.0/22", "209.85.204.0/22"])
+    error_message = "tcp health-check firewall must allow the external passthrough probe ranges (209.85.152.0/22, 209.85.204.0/22) plus the internal ones"
+  }
+
+  assert {
+    condition     = resource.google_compute_firewall.health_check["http"].source_ranges == toset(["35.191.0.0/16", "130.211.0.0/22"])
+    error_message = "http health-check firewall must allow only the proxied-LB probe ranges"
   }
 
   assert {

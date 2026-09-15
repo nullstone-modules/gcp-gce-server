@@ -79,9 +79,12 @@ Entry shapes:
 
 `tcp` and `http` resources are keyed on the capability id (one entry per capability instance)
 and named from `name`. Health-check ingress: one firewall rule per type,
-`<name>-allow-hc-<type>`, allowing `35.191.0.0/16` and `130.211.0.0/22` to the probed
-`server_port` on the instance tags. For `http` those ranges also carry the proxied client
-traffic. Nothing else is opened.
+`<name>-allow-hc-<type>`, admitting Google's probe ranges to the probed `server_port` on the
+instance tags. External passthrough probes come from `35.191.0.0/16`, `209.85.152.0/22` and
+`209.85.204.0/22` and are addressed to the load balancer IP; internal passthrough, proxied and
+liveness probes come from `35.191.0.0/16` and `130.211.0.0/22`. The `tcp` rule admits all
+four ranges, `http` and `liveness` the latter two. For `http` those ranges also carry the
+proxied client traffic. Nothing else is opened.
 
 The capabilities.tf placeholder lists one example entry per type; `tests/load_balancers.tftest.hcl`
 plans against it.

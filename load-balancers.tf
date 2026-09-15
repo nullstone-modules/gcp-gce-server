@@ -45,10 +45,19 @@ locals {
     { for lb in values(local.lb_tcp_global) : lb.port_name => lb.server_port },
   )
 
-  # Google health-check probe sources. Proxied load balancers (http, global tcp) also deliver
-  # client traffic from these ranges, so one rule per type covers both.
+  # Google health-check probe sources, per rule type.
   # https://cloud.google.com/load-balancing/docs/health-check-concepts#ip-ranges
-  health_check_source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
+  #   - External passthrough NLB probes come from 35.191.0.0/16, 209.85.152.0/22 and 209.85.204.0/22,
+  #     addressed to the forwarding rule's IP (verified on a backend: only 209.85.20x.x probers were
+  #     seen; 130.211.0.0/22 never probes it). Internal passthrough probes come from 35.191.0.0/16
+  #     and 130.211.0.0/22. The tcp rule covers both variants.
+  #   - Proxied load balancers (http, global tcp) and MIG autohealing probe from 35.191.0.0/16 and
+  #     130.211.0.0/22; the proxies also deliver client traffic from those ranges.
+  health_check_source_ranges = {
+    tcp      = ["35.191.0.0/16", "130.211.0.0/22", "209.85.152.0/22", "209.85.204.0/22"]
+    http     = ["35.191.0.0/16", "130.211.0.0/22"]
+    liveness = ["35.191.0.0/16", "130.211.0.0/22"]
+  }
 
   health_check_ports = {
     tcp      = [for lb in values(local.lb_tcp) : lb.server_port]
@@ -63,7 +72,7 @@ resource "google_compute_firewall" "health_check" {
 
   name          = "${local.resource_name}-allow-hc-${each.key}"
   network       = local.vpc_name
-  source_ranges = local.health_check_source_ranges
+  source_ranges = local.health_check_source_ranges[each.key]
   target_tags   = local.instance_tags
 
   allow {
