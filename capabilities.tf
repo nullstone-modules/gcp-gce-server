@@ -27,7 +27,7 @@ locals {
     env = [
       {
         cap_tf_id = "x"
-        name      = ""
+        name      = "ENV_NAME"
         value     = ""
       }
     ]
@@ -35,7 +35,7 @@ locals {
     secrets = [
       {
         cap_tf_id = "x"
-        name      = ""
+        name      = "SECRET_NAME"
         value     = sensitive("")
       }
     ]
@@ -110,14 +110,91 @@ locals {
       }
     ]
 
-    // load_balancers: L4 LB capabilities export target pools; MIG sets target_pools.
+    // load_balancers: ingress capabilities emit a spec; `type` selects the shape and this module
+    // creates whatever must name the MIG instance group (see load-balancers.tf and README).
+    // Entries without `type` are target pools from gcp-gce-tcp-load-balancer < 0.1.0, which emitted
+    // { port, target_pool }; only target_pool is read. Legacy: target pools have no health check and
+    // silently lose members when recreated. Kept only so existing attachments survive an upgrade;
+    // do not build new capabilities on it.
     load_balancers = [
       {
-        cap_tf_id = "x"
-        port      = "2022"
+        cap_tf_id = "legacy-ingress"
+        port      = "2222"
         # The full URL of all target pools to which new instances in the group are added. Updating the target pools attribute does not affect existing instances.
-        target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>" # usually, google_compute_target_pool.this.self_link
-      }
+        target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>"
+      },
+      {
+        cap_tf_id      = "sftp-ingress"
+        type           = "tcp"
+        name           = "app-fghij"
+        scheme         = "EXTERNAL"     # EXTERNAL | INTERNAL (passthrough scope)
+        global         = false          # true = global external proxy NLB on a global address
+        proxy_protocol = false          # global only: PROXY protocol v1 to the VM
+        ip_address     = "203.0.113.10" # regional external address
+        service_port   = 22             # external port on the forwarding rule
+        server_port    = 2022           # port probed on the VM
+        port_name      = "tcp-2022"     # MIG named port, used only when global
+        health_check = {
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
+      {
+        cap_tf_id      = "sftp-internal"
+        type           = "tcp"
+        name           = "app-pqrst"
+        scheme         = "INTERNAL"
+        global         = false
+        proxy_protocol = false
+        ip_address     = "10.0.1.10" # address in the public (ingress) subnet
+        service_port   = 22
+        server_port    = 2022
+        port_name      = "tcp-2022"
+        health_check = {
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
+      {
+        cap_tf_id      = "sftp-global"
+        type           = "tcp"
+        name           = "app-uvwxy"
+        scheme         = "EXTERNAL"
+        global         = true
+        proxy_protocol = true
+        ip_address     = "203.0.113.30" # global external address
+        service_port   = 22
+        server_port    = 2022
+        port_name      = "tcp-2022"
+        health_check = {
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
+      {
+        cap_tf_id          = "web-ingress"
+        type               = "http"
+        scope              = "global"           # regional needs a proxy-only subnet; rejected today
+        scheme             = "EXTERNAL_MANAGED" # INTERNAL_MANAGED likewise
+        name               = "app-klmno"
+        ip_address         = "203.0.113.20" # global external address
+        certificate_map_id = "projects/<project>/locations/global/certificateMaps/<name>"
+        port_name          = "http-8080" # MIG named port
+        server_port        = 8080
+        health_check = {
+          path                = "/healthz"
+          interval_sec        = 5
+          timeout_sec         = 4
+          healthy_threshold   = 2
+          unhealthy_threshold = 2
+        }
+      },
     ]
   }
 }

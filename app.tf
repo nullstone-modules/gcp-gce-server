@@ -22,5 +22,6 @@ locals {
     network       = local.vpc_name
     region        = local.region
     instance_tags = join(",", local.instance_tags)
+    lb_subnet     = local.public_subnet_names[0]
   })
 }

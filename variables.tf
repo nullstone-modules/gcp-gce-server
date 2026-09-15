@@ -56,3 +56,18 @@ Configure CPU utilization alerting for the VM.
 When enabled, a GCP monitoring alert policy is created that notifies the given notification channel when CPU utilization exceeds the configured threshold (0-100).
 EOF
 }
+
+variable "liveness_port" {
+  type        = number
+  default     = 0
+  description = <<EOF
+TCP port on the VM that must accept connections for the instance to be considered healthy. 0 (default) disables liveness checking.
+When set, the MIG recreates an instance that fails 3 consecutive probes (10 s interval, 300 s
+grace after boot).
+EOF
+
+  validation {
+    condition     = var.liveness_port == 0 || (var.liveness_port >= 1 && var.liveness_port <= 65535)
+    error_message = "liveness_port must be 0 (off) or between 1 and 65535."
+  }
+}
