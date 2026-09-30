@@ -22,21 +22,27 @@ locals {
   cap_env_prefixes = tomap({
     x = ""
   })
+  // cap_prefixes is a map indexed by capability name which points to the env_prefix in local.cap_modules
+  cap_prefixes = tomap({
+    x = ""
+  })
 
   capabilities = {
     env = [
       {
-        cap_tf_id = "x"
-        name      = "ENV_NAME"
-        value     = ""
+        cap_tf_id  = "x"
+        capability = "x"
+        name       = "ENV_NAME"
+        value      = ""
       }
     ]
 
     secrets = [
       {
-        cap_tf_id = "x"
-        name      = "SECRET_NAME"
-        value     = sensitive("")
+        cap_tf_id  = "x"
+        capability = "x"
+        name       = "SECRET_NAME"
+        value      = sensitive("")
       }
     ]
 
@@ -45,8 +51,9 @@ locals {
     // They will be flattened into list(string) when we output from this module
     private_urls = [
       {
-        cap_tf_id = "x"
-        url       = "http://example"
+        cap_tf_id  = "x"
+        capability = "x"
+        url        = "http://example"
       }
     ]
 
@@ -55,8 +62,9 @@ locals {
     // They will be flattened into list(string) when we output from this module
     public_urls = [
       {
-        cap_tf_id = "x"
-        url       = "https://example.com"
+        cap_tf_id  = "x"
+        capability = "x"
+        url        = "https://example.com"
       }
     ]
 
@@ -65,10 +73,11 @@ locals {
     // See https://docs.nullstone.io/extending/metrics/overview.html
     metrics = [
       {
-        cap_tf_id = "x"
-        name      = ""
-        type      = "usage|usage-percent|duration|generic"
-        unit      = ""
+        cap_tf_id  = "x"
+        capability = "x"
+        name       = ""
+        type       = "usage|usage-percent|duration|generic"
+        unit       = ""
 
         mappings = jsonencode({})
       }
@@ -77,6 +86,7 @@ locals {
     disks = [
       {
         cap_tf_id   = "x"
+        capability  = "x"
         device_name = ""
         disk_id     = ""
         mode        = "" // "READ_WRITE" | "READ_ONLY"
@@ -85,7 +95,8 @@ locals {
 
     cloud_init_stanzas = [
       {
-        cap_tf_id = "x"
+        cap_tf_id  = "x"
+        capability = "x"
         write_files = [
           {
             path        = "/"
@@ -104,9 +115,10 @@ locals {
     // (e.g. gcp-gce-mounted-ssh-keys). Consumed at local.capabilities.secret_files.
     secret_files = [
       {
-        cap_tf_id = "x"
-        name      = "id_ed25519"
-        secret_id = "..."
+        cap_tf_id  = "x"
+        capability = "x"
+        name       = "id_ed25519"
+        secret_id  = "..."
       }
     ]
 
@@ -118,13 +130,15 @@ locals {
     // do not build new capabilities on it.
     load_balancers = [
       {
-        cap_tf_id = "legacy-ingress"
-        port      = "2222"
+        cap_tf_id  = "legacy-ingress"
+        capability = "legacy-ingress"
+        port       = "2222"
         # The full URL of all target pools to which new instances in the group are added. Updating the target pools attribute does not affect existing instances.
         target_pool = "https://www.googleapis.com/compute/v1/projects/<project>/regions/<region>/targetPools/<name>"
       },
       {
         cap_tf_id      = "sftp-ingress"
+        capability     = "sftp-ingress"
         type           = "tcp"
         name           = "app-fghij"
         scheme         = "EXTERNAL"     # EXTERNAL | INTERNAL (passthrough scope)
@@ -143,6 +157,7 @@ locals {
       },
       {
         cap_tf_id      = "sftp-internal"
+        capability     = "sftp-internal"
         type           = "tcp"
         name           = "app-pqrst"
         scheme         = "INTERNAL"
@@ -161,6 +176,7 @@ locals {
       },
       {
         cap_tf_id      = "sftp-global"
+        capability     = "sftp-global"
         type           = "tcp"
         name           = "app-uvwxy"
         scheme         = "EXTERNAL"
@@ -179,6 +195,7 @@ locals {
       },
       {
         cap_tf_id          = "web-ingress"
+        capability         = "web-ingress"
         type               = "http"
         scope              = "global"           # regional needs a proxy-only subnet; rejected today
         scheme             = "EXTERNAL_MANAGED" # INTERNAL_MANAGED likewise
