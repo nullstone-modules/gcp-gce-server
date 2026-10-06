@@ -15,7 +15,7 @@ locals {
   ])
 
   # Trailing newline per line so the loader can cat manifests without gluing entries.
-  app_env_manifest = join("", [for k, v in local.all_env_vars : "${k}=${v}\n"])
+  app_env_manifest = join("", [for k, v in data.ns_env_values.this.env_variables : "${k}=${v}\n"])
   # IDs only — never secret values (resolved at boot into tmpfs by load-app-secrets.sh).
   app_secrets_manifest = join("", [for k, id in local.all_secrets : "${k}=${id}\n"])
   # Capability-contributed file secrets (e.g. gcp-gce-mounted-ssh-keys).

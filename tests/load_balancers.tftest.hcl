@@ -31,12 +31,16 @@ mock_provider "ns" {
     defaults = { version = "1.0.0", commit_sha = "abc123" }
   }
 
-  mock_data "ns_env_variables" {
-    defaults = { env_variables = {}, secrets = {}, secret_refs = {} }
+  mock_data "ns_env_layout" {
+    defaults = { managed_secret_keys = [], unmanaged_secret_keys = [], all_secret_keys = [] }
   }
 
-  mock_data "ns_secret_keys" {
-    defaults = { secret_keys = [] }
+  mock_data "ns_env_values" {
+    defaults = { env_variables = {}, secrets = {}, unmanaged_secret_refs = {}, sources = {}, platform_data = "{\"platform\":\"gcp_gce\",\"variables\":{}}" }
+  }
+
+  mock_data "ns_env_platform_data" {
+    defaults = { platform_data = "{}" }
   }
 }
 
